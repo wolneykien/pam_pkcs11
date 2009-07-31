@@ -55,6 +55,7 @@ struct configuration_st configuration = {
 	/* cert policy; */
         {
 		0,
+		0,
 		CRLP_NONE,
 		0,
 		CONFDIR "/cacerts",
@@ -184,6 +185,7 @@ static void parse_config_file(void) {
 	        if ( !strcmp(policy_list->data,"none") ) {
 			configuration.policy.crl_policy=CRLP_NONE;
 			configuration.policy.ocsp_policy=OCSP_NONE;
+			configuration.policy.global_ca_policy=0;
 			configuration.policy.ca_policy=0;
 			configuration.policy.signature_policy=0;
 			break;
@@ -195,6 +197,8 @@ static void parse_config_file(void) {
 			configuration.policy.crl_policy=CRLP_OFFLINE;
 		} else if ( !strcmp(policy_list->data,"ocsp_on") ) {
 			configuration.policy.ocsp_policy=OCSP_ON;
+		} else if ( !strcmp(policy_list->data,"global_ca") ) {
+			configuration.policy.global_ca_policy=1;
 		} else if ( !strcmp(policy_list->data,"ca") ) {
 			configuration.policy.ca_policy=1;
 		} else if ( !strcmp(policy_list->data,"signature") ) {
