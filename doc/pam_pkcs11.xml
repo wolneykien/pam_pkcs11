@@ -240,8 +240,8 @@ rpm -v -i /usr/src/redhat/RPMS/i386/pam_pkcs11-tools-X.Y-Z.i386.rpm</userinput>
 	class='directory'>/etc/pam_pkcs11/crls/</filename> and <filename
 	class='directory'>/etc/pam_pkcs11/cacerts/</filename> directories
 	corresponding to the configuration file, and fill them with proper
-	data.  The <filename class='directory'>tools/</filename> directory
-	provides a tool <application>pkcs11_make_hash_link</application> that can
+	data.  OpenSSL package
+	provides a tool <application>c_rehash</application> that can
 	be used to create hash files on every valid Cert and CRL
 	file.</listitem>
 
@@ -419,13 +419,12 @@ So the process to setup ca and crl entries is:
 	<listitem> Copy CA Certificates (either DER or PEM format) to
 	the ca_dir directory</listitem>
 
-	<listitem> Create hash links to CA certificates with provided
-	<application>pkcs11_make_hash_link</application>. Note that
+	<listitem> Create hash links to CA certificates with
+	<application>c_rehash</application>. Note that
 	<application>OpenSSL</application> must be installed 
 
 <screen>
-<userinput>cd /etc/pam_pkcs11/cacerts
-/usr/bin/pkcs11_make_hash_link</userinput>
+<userinput>c_rehash /etc/pam_pkcs11/cacerts</userinput>
 </screen>
         </listitem>
 	<listitem> Repeat above procedure for CRL entries (if used)</listitem>
@@ -593,8 +592,8 @@ The default value is <filename
 class='directory'>/etc/pam_pkcs11/cacerts/</filename>.
 </para>
 <para>
-<application>Pam-pkcs11</application> provides a utility:
-<filename>pkcs11_make_hash_link</filename> that can be used to create hash
+<application>OpenSSL</application> provides a utility:
+<filename>c_rehash</filename> that can be used to create hash
 links to certificate files. Hashes are used to check certification
 validity and revocation.
 </para>
@@ -1182,10 +1181,9 @@ class='directory'>/etc/pam_pkcs11/cacerts/</filename> can be read by
 any user.
 
 <screen>
-<userinput>cp testCA-cacert.der /etc/pam_pkcs11/cacerts/
-cd /etc/pam_pkcs11/cacerts
-chmod a+r *
-pkcs11_make_hash_link</userinput>
+<userinput>cp testCA-cacert.pem /etc/pam_pkcs11/cacerts/
+chmod a+r /etc/pam_pkcs11/cacerts/*
+c_rehash /etc/pam_pkcs11/cacerts</userinput>
 </screen>
 </para>
 </sect2>
