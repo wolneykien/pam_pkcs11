@@ -86,7 +86,7 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
   struct pam_message *(msgp[1]);
   msgp[0] = &msg;
   va_list va;
-  char text[128];
+  char text[256];
 
   va_start(va, fmt);
   vsnprintf(text, sizeof text, fmt, va);
@@ -489,7 +489,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	rv = get_slot_protected_authentication_path(ph);
 	if ((-1 == rv) || (0 == rv))
 	{
-		char password_prompt[128];
+		char password_prompt[256];
 
 		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
 		if (configuration->use_first_pass) {
