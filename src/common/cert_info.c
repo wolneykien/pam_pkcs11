@@ -748,6 +748,7 @@ static char **cert_info_sshpuk(X509 *x509) {
 		DBG("No memory to store public key dump");
 		goto sshpuk_fail;
 	}
+	/* buf is allocated above */
 	if (maillist && maillist[0]) sprintf(buf,"%s %s %s",type,data,maillist[0]);
 	else sprintf(buf,"%s %s",type,data);
 	DBG1("Public key is '%s'\n",buf);

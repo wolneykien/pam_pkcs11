@@ -483,6 +483,7 @@ int main(int argc, char *argv[])
 				strerror(errno));
 			return 1;
 		}
+        /* moduleSpec is allocated above */
 		sprintf(moduleSpec, SPEC_TEMPLATE, pkcs11_module);
 		DBG2("loading Module explictly, moduleSpec=<%s> module=%s\n",
 			moduleSpec, pkcs11_module);

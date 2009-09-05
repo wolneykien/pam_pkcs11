@@ -307,6 +307,7 @@ int load_pkcs11_module(const char *pkcs11_module, pkcs11_handle_t **hp)
     free (h);
     return -1;
   }
+  /* moduleSpec is allocated above */
   sprintf(moduleSpec,SPEC_TEMPLATE, pkcs11_module);
   DBG2("loading Module explictly, moduleSpec=<%s> module=%s",
                                                 moduleSpec, pkcs11_module);
