@@ -470,93 +470,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
-  rv = get_slot_login_required(ph);
-  if (rv == -1) {
-    ERR1("get_slot_login_required() failed: %s", get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
-		sleep(configuration->err_display_time);
-	}
-    release_pkcs11_module(ph);
-    return pkcs11_pam_fail;
-  } else if (rv) {
-    /* get password */
-	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
-
-	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
-	rv = get_slot_protected_authentication_path(ph);
-	if ((-1 == rv) || (0 == rv))
-	{
-		char password_prompt[128];
-
-		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
-		if (configuration->use_first_pass) {
-			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
-		} else if (configuration->try_first_pass) {
-			rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
-					PAM_AUTHTOK);
-		} else {
-			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
-		}
-		if (rv != PAM_SUCCESS) {
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
-				sleep(configuration->err_display_time);
-			}
-			release_pkcs11_module(ph);
-			pam_syslog(pamh, LOG_ERR,
-					"pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
-			return pkcs11_pam_fail;
-		}
-#ifdef DEBUG_SHOW_PASSWORD
-		DBG1("password = [%s]", password);
-#endif
-
-		/* check password length */
-		if (!configuration->nullok && strlen(password) == 0) {
-			release_pkcs11_module(ph);
-			cleanse(password, strlen(password));
-			free(password);
-			pam_syslog(pamh, LOG_ERR,
-					"password length is zero but the 'nullok' argument was not defined.");
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
-				sleep(configuration->err_display_time);
-			}
-			return PAM_AUTH_ERR;
-		}
-	}
-	else
-	{
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
-		/* use pin pad */
-		password = NULL;
-	}
-
-    /* call pkcs#11 login to ensure that the user is the real owner of the card
-     * we need to do thise before get_certificate_list because some tokens
-     * can not read their certificates until the token is authenticated */
-    rv = pkcs11_login(ph, password);
-    /* erase and free in-memory password data asap */
-	if (password)
-	{
-		cleanse(password, strlen(password));
-		free(password);
-	}
-    if (rv != 0) {
-      ERR1("open_pkcs11_login() failed: %s", get_error());
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
-			sleep(configuration->err_display_time);
-		}
-      goto auth_failed_nopw;
-    }
-  }
-
   cert_list = get_certificate_list(ph, &ncert);
   if (rv<0) {
     ERR1("get_certificate_list() failed: %s", get_error());
@@ -680,6 +593,93 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     goto auth_failed_nopw;
   }
 
+
+  rv = get_slot_login_required(ph);
+  if (rv == -1) {
+    ERR1("get_slot_login_required() failed: %s", get_error());
+    if (!configuration->quiet) {
+		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
+		sleep(configuration->err_display_time);
+	}
+    release_pkcs11_module(ph);
+    return pkcs11_pam_fail;
+  } else if (rv) {
+    /* get password */
+	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+
+	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
+	rv = get_slot_protected_authentication_path(ph);
+	if ((-1 == rv) || (0 == rv))
+	{
+		char password_prompt[256];
+
+		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
+		if (configuration->use_first_pass) {
+			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
+		} else if (configuration->try_first_pass) {
+			rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
+					PAM_AUTHTOK);
+		} else {
+			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
+		}
+		if (rv != PAM_SUCCESS) {
+			if (!configuration->quiet) {
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
+				sleep(configuration->err_display_time);
+			}
+			release_pkcs11_module(ph);
+			pam_syslog(pamh, LOG_ERR,
+					"pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
+			return pkcs11_pam_fail;
+		}
+#ifdef DEBUG_SHOW_PASSWORD
+		DBG1("password = [%s]", password);
+#endif
+
+		/* check password length */
+		if (!configuration->nullok && strlen(password) == 0) {
+			release_pkcs11_module(ph);
+			memset(password, 0, strlen(password));
+			free(password);
+			pam_syslog(pamh, LOG_ERR,
+					"password length is zero but the 'nullok' argument was not defined.");
+			if (!configuration->quiet) {
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
+				sleep(configuration->err_display_time);
+			}
+			return PAM_AUTH_ERR;
+		}
+	}
+	else
+	{
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
+		/* use pin pad */
+		password = NULL;
+	}
+
+    /* call pkcs#11 login to ensure that the user is the real owner of the card
+     * we need to do thise before get_certificate_list because some tokens
+     * can not read their certificates until the token is authenticated */
+    rv = pkcs11_login(ph, password);
+    /* erase and free in-memory password data asap */
+	if (password)
+	{
+		memset(password, 0, strlen(password));
+		free(password);
+	}
+    if (rv != 0) {
+      ERR1("open_pkcs11_login() failed: %s", get_error());
+		if (!configuration->quiet) {
+			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+			sleep(configuration->err_display_time);
+		}
+      goto auth_failed_nopw;
+    }
+  }
 
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {
