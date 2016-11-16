@@ -23,6 +23,9 @@ pam_pkcs11 {
   # previously set (intended for stacking password modules only).
   use_authtok = false;
 
+  # Request PIN during smartcard operations (enabled by default)
+  ask_pin = true;
+
   # Filename of the PKCS #11 module. The default value is "default"
   use_pkcs11_module = opensc;
 

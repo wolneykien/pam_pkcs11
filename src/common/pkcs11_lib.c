@@ -37,10 +37,13 @@
 /*
  * this functions is completely common between both implementation.
  */
-int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
+int pkcs11_pass_login(pkcs11_handle_t *h, int nullok, int ask_pin)
 {
   int rv;
   char *pin;
+
+  /* if ask_pin is set, skip PIN prompt */ 
+  if (ask_pin) {
 
   /* get password */
   pin =getpass("PIN for token: ");
@@ -61,9 +64,13 @@ int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
     return -1;
   }
 
+  }
+
   /* perform pkcs #11 login */
-  rv = pkcs11_login(h, pin);
-  cleanse(pin, strlen(pin));
+  rv = pkcs11_login(h, ask_pin ? pin : "");
+  if (ask_pin) {
+    cleanse(pin, strlen(pin));
+  }
   if (rv != 0) {
     set_error("pkcs11_login() failed: %s", get_error());
     return -1;

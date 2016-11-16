@@ -611,7 +611,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
-	if ((-1 == rv) || (0 == rv))
+	if (((-1 == rv) || (0 == rv)) && configuration->ask_pin)
 	{
 		char password_prompt[256];
 

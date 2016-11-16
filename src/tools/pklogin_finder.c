@@ -104,7 +104,7 @@ int main(int argc, const char **argv) {
 
 #ifdef HAVE_NSS
   /* not really needed, but... */
-  rv = pkcs11_pass_login(ph,configuration->nullok);
+  rv = pkcs11_pass_login(ph,configuration->nullok,configuration->ask_pin);
   if (rv != 0) {
     DBG1("pkcs11_pass_login() failed: %s", get_error());
     return 2;
