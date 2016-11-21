@@ -270,6 +270,14 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
       		configuration.use_first_pass = 1;
 		continue;
 	   }
+    	   if (strcmp("ask_pin", argv[i]) == 0) {
+      		configuration.ask_pin = 1;
+		continue;
+	   }
+    	   if (strcmp("dont_ask_pin", argv[i]) == 0) {
+      		configuration.ask_pin = 0;
+		continue;
+	   }
     	   if (strcmp("wait_for_card", argv[i]) == 0) {
       		configuration.wait_for_card = 1;
 		continue;
