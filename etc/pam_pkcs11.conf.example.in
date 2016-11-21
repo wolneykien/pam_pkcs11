@@ -8,6 +8,9 @@ pam_pkcs11 {
   # Allow empty passwords
   nullok = true;
 
+  # Request PIN during smartcard operations (enabled by default)
+  ask_pin = true;
+
   # Enable debugging support.
   debug = true; 
 
@@ -22,9 +25,6 @@ pam_pkcs11 {
   # Like try_first_pass, but fail if the new PAM_AUTHTOK has not been
   # previously set (intended for stacking password modules only).
   use_authtok = false;
-
-  # Request PIN during smartcard operations (enabled by default)
-  ask_pin = true;
 
   # Filename of the PKCS #11 module. The default value is "default"
   use_pkcs11_module = opensc;
