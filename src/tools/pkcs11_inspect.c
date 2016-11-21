@@ -104,7 +104,7 @@ int main(int argc, const char **argv) {
   }
 
   /* not really needed, but.... */
-  rv = pkcs11_pass_login(ph,configuration->nullok,configuration->ask_pin);
+  rv = configuration->ask_pin ? pkcs11_pass_login(ph,configuration->nullok) : pkcs11_nopass_login(ph);
   if (rv != 0) {
     ERR1("pkcs11_pass_login() failed: %s", get_error());
     return 2;

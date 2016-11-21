@@ -654,9 +654,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	}
 	else
 	{
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
-		/* use pin pad */
+		if (configuration->ask_pin) {
+			pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+					   _("Enter your %s PIN on the pinpad"), _(configuration->token_type));
+			/* use pin pad */
+		}
+		else
+		{
+			DBG("pkcs11_login is affected by false ask_pin (before ensuring that the user is the real owner of the card); this might be insecure");
+		}
 		password = NULL;
 	}
 

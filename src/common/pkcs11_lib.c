@@ -37,13 +37,10 @@
 /*
  * this functions is completely common between both implementation.
  */
-int pkcs11_pass_login(pkcs11_handle_t *h, int nullok, int ask_pin)
+int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
 {
   int rv;
   char *pin;
-
-  /* if ask_pin is set, skip PIN prompt */ 
-  if (ask_pin) {
 
   /* get password */
   pin =getpass("PIN for token: ");
@@ -64,13 +61,29 @@ int pkcs11_pass_login(pkcs11_handle_t *h, int nullok, int ask_pin)
     return -1;
   }
 
-  }
-
   /* perform pkcs #11 login */
-  rv = pkcs11_login(h, ask_pin ? pin : "");
-  if (ask_pin) {
-    cleanse(pin, strlen(pin));
+  rv = pkcs11_login(h, pin);
+  cleanse(pin, strlen(pin));
+  if (rv != 0) {
+    set_error("pkcs11_login() failed: %s", get_error());
+    return -1;
   }
+  return 0;
+}
+
+/* Like pkcs11_pass_login above, but skip PIN prompt if desired
+ * (e.g., if ask_pin is set; this is insecure).
+ */
+int pkcs11_nopass_login(pkcs11_handle_t *h)
+{
+  int rv;
+
+  DBG("pkcs11_login is affected by false ask_pin; this might be insecure");
+
+  /* perform pkcs #11 login similarly to
+     CKF_PROTECTED_AUTHENTICATION_PATH in pam_pkcs11.c
+     (when the pinpad is to be used instead of asking for PIN here) */
+  rv = pkcs11_login(h, NULL);
   if (rv != 0) {
     set_error("pkcs11_login() failed: %s", get_error());
     return -1;
