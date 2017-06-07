@@ -602,9 +602,8 @@ int main(int argc, char *argv[])
 #else
 	int rv;
 
-	int first_loop = 0;
-	int old_state = CARD_NOT_PRESENT;
-	int new_state = CARD_NOT_PRESENT;
+	int old_state = CARD_ERROR;
+	int new_state = old_state;
 	int expire_count = 0;
 
 	/* parse args and configuration file */
@@ -702,9 +701,11 @@ int main(int argc, char *argv[])
 		else
 		{						/* state changed; parse event */
 			old_state = new_state;
+			if (old_state == CARD_ERROR)
+				continue;
+
 			expire_count = 0;
-			if (!first_loop++)
-				continue;		/*skip first pass */
+
 			if (new_state == CARD_NOT_PRESENT)
 			{
 				DBG("Card removed, ");
