@@ -54,14 +54,14 @@ pam_pkcs11 {
     # 1- A directory with openssl hash-links to all certificates
     # 2- A CA file in PEM (.pem) or ASN1 (.cer) format, 
     # containing all allowed CA certs
-    # The default value is /etc/pam_pkcs11/cacerts.
-    ca_dir = /etc/pam_pkcs11/cacerts;
+    # The default value is @confdir@/cacerts.
+    ca_dir = @confdir@/cacerts;
   
     # Path to the directory where the local (offline) CRLs are stored.
     # Same convention as above is applied: you can choose either
     # hash-link directory or CRL file
-    # The default value is /etc/pam_pkcs11/crls.
-    crl_dir = /etc/pam_pkcs11/crls;
+    # The default value is @confdir@/crls.
+    crl_dir = @confdir@/crls;
   
     # Some pcks#11 libraries can handle multithreading. So 
     # set it to true to properly call C_Initialize() 
@@ -95,8 +95,8 @@ pam_pkcs11 {
     description = "Aladdin eTokenPRO-32";
     slot_num = 0;
     support_threads = true;
-    ca_dir = /etc/pam_pkcs11/cacerts;
-    crl_dir = /etc/pam_pkcs11/crls;
+    ca_dir = @confdir@/cacerts;
+    crl_dir = @confdir@/crls;
     cert_policy = ca,signature;
   }
 
@@ -112,8 +112,8 @@ pam_pkcs11 {
     description = "Default pkcs#11 module";
     slot_num = 0;
     support_threads = false;
-    ca_dir = /etc/pam_pkcs11/cacerts;
-    crl_dir = /etc/pam_pkcs11/crls;
+    ca_dir = @confdir@/cacerts;
+    crl_dir = @confdir@/crls;
     cert_policy = none;
   }
 
@@ -157,7 +157,7 @@ pam_pkcs11 {
         # Use one of "cn" , "subject" , "kpn" , "email" , "upn" , "uid" or "serial"
         cert_item  = cn;
         # Define mapfile if needed, else select "none"
-        mapfile = file:///etc/pam_pkcs11/generic_mapping;
+        mapfile = file://@confdir@/generic_mapping;
         # Decide if use getpwent() to map login
         use_getpwent = false;
   }
@@ -169,7 +169,7 @@ pam_pkcs11 {
 	# module = @libdir@/pam_pkcs11/subject_mapper.so;
 	module = internal;
 	ignorecase = false;
-	mapfile = file:///etc/pam_pkcs11/subject_mapping;
+	mapfile = file://@confdir@/subject_mapping;
   }
 
   # Search public keys from $HOME/.ssh/authorized_keys to match users
@@ -255,7 +255,7 @@ pam_pkcs11 {
 	module = internal;
 	# module = @libdir@/pam_pkcs11/cn_mapper.so;
 	ignorecase = true;
-	# mapfile = file:///etc/pam_pkcs11/cn_map;
+	# mapfile = file://@confdir@/cn_map;
 	mapfile = "none";
   }
 
@@ -266,7 +266,7 @@ pam_pkcs11 {
 	# module = @libdir@/pam_pkcs11/mail_mapper.so;
 	# Declare mapfile or
 	# leave empty "" or "none" to use no map 
-	mapfile = file:///etc/pam_pkcs11/mail_mapping;
+	mapfile = file://@confdir@/mail_mapping;
 	# Some certs store email in uppercase. take care on this
 	ignorecase = true;
 	# Also check that host matches mx domain
@@ -313,7 +313,7 @@ pam_pkcs11 {
         # Select one of:
 	# "null","md2","md4","md5","sha","sha1","dss","dss1","ripemd160"
 	algorithm = "sha1";
-	mapfile = file:///etc/pam_pkcs11/digest_mapping;
+	mapfile = file://@confdir@/digest_mapping;
 	# mapfile = "none";
   }
 
