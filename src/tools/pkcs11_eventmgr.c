@@ -717,10 +717,12 @@ int main(int argc, char *argv[])
 		}
 		else
 		{						/* state changed; parse event */
-			old_state = new_state;
-			if (old_state == CARD_ERROR)
+			if (old_state == CARD_ERROR) {
+				old_state = new_state;
 				continue;
-
+			} else {
+				old_state = new_state;
+			}
 			expire_count = 0;
 
 			if (new_state == CARD_NOT_PRESENT)
