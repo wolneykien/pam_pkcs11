@@ -381,19 +381,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
 
   if (rv != 0) {
-    ERR("no suitable token available");
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "no suitable token available");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
-		sleep(configuration->err_display_time);
-	}
-
     if (!configuration->card_only || !login_token_name) {
       release_pkcs11_module(ph);
 	  /* Allow to pass to the next module if the auth isn't
          restricted to card only. */
       return PAM_IGNORE;
     }
+
+    ERR("no suitable token available");
+    if (!configuration->quiet) {
+		pam_syslog(pamh, LOG_ERR, "no suitable token available");
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
+		sleep(configuration->err_display_time);
+	}
 
     if (configuration->wait_for_card) {
       if (login_token_name) {
