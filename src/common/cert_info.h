@@ -47,6 +47,8 @@
 #define CERT_SERIAL	12
 /** Certificate key algorithm */
 #define CERT_KEY_ALG	13
+/** Certificate value by OID */
+#define CERT_OID    100
 
 /** Max size of returned certificate content array */
 #define CERT_INFO_SIZE 16

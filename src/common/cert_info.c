@@ -407,56 +407,74 @@ static char **cert_info_issuer(X509 *x509) {
 }
 
 /*
+* Extract Certificate's value by OID
+*/
+static char **cert_info_oid(X509 *x509, const char *oid) {
+    int i, j = 0;
+	static char *entries[CERT_INFO_SIZE];
+    ASN1_OBJECT *obj;
+    
+    DBG1("Trying to find OID %s in certificate", oid);    
+    obj = OBJ_txt2obj(oid, 1);
+    if (!obj) {
+        DBG("Cannot map OID");
+        return NULL;
+    }
+
+    STACK_OF(GENERAL_NAME) *gens;
+    GENERAL_NAME *name;
+    gens = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
+
+    if (gens) {
+        for (j=0; j < CERT_INFO_SIZE; j++) entries[j] = NULL;
+        for (i=0, j=0; (i < sk_GENERAL_NAME_num(gens)) && (j < CERT_INFO_MAX_ENTRIES); i++) {
+            name = sk_GENERAL_NAME_value(gens, i);
+            if (name && name->type == GEN_OTHERNAME) {
+                if (OBJ_cmp(name->d.otherName->type_id, obj)) {
+                    continue; /* OID doesn't match */
+                } else {
+                    DBG1("Found OID %s", oid);
+                    unsigned char *txt = NULL;
+                    ASN1_TYPE *val = name->d.otherName->value;
+
+                    switch (val->type) {
+                    case V_ASN1_UTF8STRING:
+                        txt = val->value.utf8string->data;
+                        break;
+                    default:
+                        if ((ASN1_STRING_to_UTF8(&txt, val->value.asn1_string)) < 0) {
+                            DBG1("ASN1_STRING_to_UTF8() failed: %s", ERR_error_string(ERR_get_error(), NULL));
+                        }
+                        break;
+                    }
+
+                    if (txt) {
+                        DBG1("Adding entry: %s",txt);
+                        entries[j++]= clone_str((const char *)txt);
+                    }
+                }
+            }
+        }
+
+        sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
+        ASN1_OBJECT_free(obj);
+    } else {
+        DBG("No alternate name extensions");
+    }
+        
+	if (j==0) {
+        DBG1("Certificate does not contain the OID %s entry", oid);
+	    return NULL;
+	}
+    
+	return entries;
+}
+
+/*
 * Extract Certificate's Kerberos Principal Name
 */
 static char **cert_info_kpn(X509 *x509) {
-        int i,j;
-	static char *entries[CERT_INFO_SIZE];
-        STACK_OF(GENERAL_NAME) *gens;
-        GENERAL_NAME *name;
-        ASN1_OBJECT *krb5PrincipalName;
-        DBG("Trying to find a Kerberos Principal Name in certificate");
-        gens = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
-        krb5PrincipalName = OBJ_txt2obj("1.3.6.1.5.2.2", 1);
-        if (!gens) {
-                DBG("No alternate name extensions");
-                return NULL; /* no alternate names */
-        }
-        if (!krb5PrincipalName) {
-                DBG("Cannot map KPN object");
-                return NULL;
-        }
-	for (j=0;j<CERT_INFO_SIZE;j++) entries[j] = NULL;
-        for (i=0,j=0; (i < sk_GENERAL_NAME_num(gens)) && (j<CERT_INFO_MAX_ENTRIES); i++) {
-            name = sk_GENERAL_NAME_value(gens, i);
-            if ( name && name->type==GEN_OTHERNAME ) {  /* test for UPN */
-                if (OBJ_cmp(name->d.otherName->type_id, krb5PrincipalName)) continue; /* object is not a UPN */
-		else {
-		    /* NOTE:
-		    from PKINIT RFC, I deduce that stored format for kerberos
-		    Principal Name is ASN1_STRING, but not sure at 100%
-		    Any help will be granted
-		    */
-		    unsigned char *txt;
-		    ASN1_TYPE *val = name->d.otherName->value;
-		    ASN1_STRING *str= val->value.asn1_string;
-                    DBG("Found Kerberos Principal Name ");
-		    if ( ( ASN1_STRING_to_UTF8(&txt, str) ) < 0) {
-                        DBG1("ASN1_STRING_to_UTF8() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                    } else {
-                        DBG1("Adding KPN entry: %s",txt);
-		        entries[j++]= clone_str((const char *)txt);
-		    }
-		}
-            }
-        }
-        sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
-        ASN1_OBJECT_free(krb5PrincipalName);
-	if(j==0) {
-            DBG("Certificate does not contain a KPN entry");
-	    return NULL;
-	}
-	return entries;
+    return cert_info_oid(x509, "1.3.6.1.5.2.2");
 }
 
 /*
@@ -941,6 +959,12 @@ char **cert_info(X509 *x509, int type, const char *algorithm ) {
 	    default           :
 		DBG1("Invalid info type requested: %d",type);
 		return NULL;
+        case CERT_OID:
+            if ( !algorithm ) {
+                DBG("Requires OID value in the \"algorithm\" argument");
+                return NULL;
+            }
+            return cert_info_oid(x509, algorithm);
 	}
 	/* should not get here */
 	return NULL;

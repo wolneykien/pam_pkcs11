@@ -44,6 +44,7 @@ static const char *mapfile = "none";
 static int usepwent = 0;
 static int ignorecase = 0;
 static int id_type = CERT_CN;
+static const char *algorithm = ALGORITHM_NULL;
 static int debug = 0;
 
 static char **generic_mapper_find_entries(X509 *x509, void *context) {
@@ -51,7 +52,7 @@ static char **generic_mapper_find_entries(X509 *x509, void *context) {
                 DBG("NULL certificate provided");
                 return NULL;
         }
-	return cert_info(x509, id_type, ALGORITHM_NULL);
+	return cert_info(x509, id_type, algorithm);
 }
 
 static char **get_mapped_entries(char **entries) {
@@ -188,7 +189,10 @@ mapper_module * generic_mapper_module_init(scconf_block *blk,const char *name) {
 	else if (!strcasecmp(item,"upn") )    id_type=CERT_UPN;
 	else if (!strcasecmp(item,"uid") )    id_type=CERT_UID;
 	else if (!strcasecmp(item,"serial") ) id_type=CERT_SERIAL;
-	else {
+	else if (strlen(item) > 2 && item[0] >= '0' && item[0] < '3' && item[1] == '.') {
+        id_type = CERT_OID;
+        algorithm = item;
+    } else {
 	    DBG1("Invalid certificate item to search '%s'; using 'cn'",item);
 	}
 	pt = init_mapper_st(blk,name);
