@@ -329,47 +329,13 @@ void add_cert(X509 *cert, X509 ***certs, int *ncerts) {
         (*ncerts)++;
 }
 
+static char **cert_info_subj_obj(X509 *x509, ASN1_OBJECT *obj);
+
 /*
 * Extract Certificate's Common Name
 */
 static char **cert_info_cn(X509 *x509) {
-	static char *results[CERT_INFO_SIZE];
-	int lastpos,position;
-        X509_NAME *name = X509_get_subject_name(x509);
-        if (!name) {
-		DBG("Certificate has no subject");
-		return NULL;
-	}
-	for (position=0;position<CERT_INFO_SIZE;position++) results[position]= NULL;
-	position=0;
-	lastpos = X509_NAME_get_index_by_NID(name,NID_commonName,-1);
-	if (lastpos == -1) {
-		DBG("Certificate has no UniqueID");
-		return NULL;
-	}
-	while( ( lastpos != -1 ) && (position<CERT_INFO_MAX_ENTRIES) ) {
-	    X509_NAME_ENTRY *entry;
-	    ASN1_STRING *str;
-	    unsigned char *txt;
-	    if ( !(entry = X509_NAME_get_entry(name,lastpos)) ) {
-                DBG1("X509_get_name_entry() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-	    if ( !(str = X509_NAME_ENTRY_get_data(entry)) ) {
-                DBG1("X509_NAME_ENTRY_get_data() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-            if ( ( ASN1_STRING_to_UTF8(&txt, str) ) < 0) {
-                DBG1("ASN1_STRING_to_UTF8() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-	    DBG2("%s = [%s]", OBJ_nid2sn(NID_commonName), txt);
-	    results[position++]=clone_str((const char *)txt);
-	    OPENSSL_free(txt);
-	    lastpos = X509_NAME_get_index_by_NID(name, NID_commonName, lastpos);
-	}
-	/* no more UID's availables in certificate */
-	return results;
+    return cert_info_subj_obj(x509, OBJ_nid2obj(NID_commonName));
 }
 
 /*
@@ -407,19 +373,16 @@ static char **cert_info_issuer(X509 *x509) {
 }
 
 /*
-* Extract Certificate's value by OID
+* Extract Certificate's value by OID (object)
 */
-static char **cert_info_oid(X509 *x509, const char *oid) {
+static char **cert_info_ex_obj(X509 *x509, const ASN1_OBJECT *obj) {
     int i, j = 0;
 	static char *entries[CERT_INFO_SIZE];
-    ASN1_OBJECT *obj;
-    
-    DBG1("Trying to find OID %s in certificate", oid);    
-    obj = OBJ_txt2obj(oid, 1);
-    if (!obj) {
-        DBG("Cannot map OID");
-        return NULL;
-    }
+
+    char oid[256];
+    OBJ_obj2txt(oid, sizeof(oid), obj, 0);
+
+    DBG1("Trying to find %s entry in the certificate...", oid);
 
     STACK_OF(GENERAL_NAME) *gens;
     GENERAL_NAME *name;
@@ -433,7 +396,7 @@ static char **cert_info_oid(X509 *x509, const char *oid) {
                 if (OBJ_cmp(name->d.otherName->type_id, obj)) {
                     continue; /* OID doesn't match */
                 } else {
-                    DBG1("Found OID %s", oid);
+                    DBG1("Found %s entry", oid);
                     unsigned char *txt = NULL;
                     ASN1_TYPE *val = name->d.otherName->value;
 
@@ -457,17 +420,34 @@ static char **cert_info_oid(X509 *x509, const char *oid) {
         }
 
         sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
-        ASN1_OBJECT_free(obj);
     } else {
         DBG("No alternate name extensions");
     }
         
-	if (j==0) {
-        DBG1("Certificate does not contain the OID %s entry", oid);
+	if (j == 0) {
+        DBG1("Certificate extensions do not contain the %s entry", oid);
 	    return NULL;
 	}
     
 	return entries;
+}
+
+/*
+* Extract Certificate's value by OID
+*/
+static char **cert_info_oid(X509 *x509, const char *oid) {
+    ASN1_OBJECT *obj = OBJ_txt2obj(oid, 1);
+    if (!obj) {
+        DBG("Cannot map OID");
+        return NULL;
+    }
+
+    char **ret = cert_info_subj_obj(x509, obj);
+    if (!ret) {
+        ret = cert_info_ex_obj(x509, obj);
+        ASN1_OBJECT_free(obj);
+    }
+    return ret;
 }
 
 /*
@@ -510,39 +490,63 @@ static char **cert_info_email(X509 *x509) {
 * Extract Certificate's Microsoft Universal Principal Name
 */
 static char **cert_info_upn(X509 *x509) {
-        int i,j;
-	static char *entries[CERT_INFO_SIZE];
-        STACK_OF(GENERAL_NAME) *gens;
-        GENERAL_NAME *name;
-        DBG("Trying to find an Universal Principal Name in certificate");
-        gens = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
-        if (!gens) {
-	    DBG("No alternate name extensions found");
-	    return NULL;
+    return cert_info_ex_obj(x509, OBJ_nid2obj(NID_ms_upn));
+}
+
+/*
+* Extract given field Certificate's Unique Identifier(s)
+* Array size is limited to CERT_INFO_MAX_ENTRIES UID's. expected to be enough...
+*/
+static char **cert_info_subj_obj(X509 *x509, ASN1_OBJECT *obj) {
+	static char *results[CERT_INFO_SIZE];
+	int lastpos = -1; int position = 0;
+    
+    char oid[256];
+    OBJ_obj2txt(oid, sizeof(oid), obj, 0);
+    
+    X509_NAME *name = X509_get_subject_name(x509);
+    if (!name) {
+		DBG("Certificate has no subject");
+		return NULL;
 	}
-	for (j=0;j<CERT_INFO_SIZE;j++) entries[j] = NULL;
-        for (i=0,j=0; (i < sk_GENERAL_NAME_num(gens)) && (j<CERT_INFO_MAX_ENTRIES); i++) {
-            name = sk_GENERAL_NAME_value(gens, i);
-            if ( name && name->type==GEN_OTHERNAME ) {
-                /* test for UPN */
-                if (OBJ_cmp(name->d.otherName->type_id, OBJ_nid2obj(NID_ms_upn))) continue; /* object is not a UPN */
-                DBG("Found MS Universal Principal Name ");
-                /* try to extract string and return it */
-                if (name->d.otherName->value->type == V_ASN1_UTF8STRING) {
-                    ASN1_UTF8STRING *str = name->d.otherName->value->value.utf8string;
-                    DBG1("Adding UPN NAME entry= %s",str->data);
-		    entries[j++] = clone_str((const char *)str->data);
-                } else {
-		    DBG("Found UPN entry is not an utf8string");
-		}
-            }
+	for (position=0; position < CERT_INFO_SIZE; position++) {
+        results[position] = NULL;
+    }
+	position = 0;
+	lastpos = X509_NAME_get_index_by_OBJ(name, obj, -1);
+    if (lastpos == -1) {
+        DBG("Certificate subject does not contain %s entry", oid);
+        return NULL;
+    }
+    
+	while ((lastpos != -1) && (position < CERT_INFO_MAX_ENTRIES)) {
+	    X509_NAME_ENTRY *entry;
+	    ASN1_STRING *str;
+	    unsigned char *txt;
+	    if ( !(entry = X509_NAME_get_entry(name, lastpos)) ) {
+            DBG1("X509_get_name_entry() failed: %s", ERR_error_string(ERR_get_error(),NULL));
+            return results;
         }
-        sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
-	if(j==0) {
-            DBG("Certificate does not contain a MS UPN entry");
-	    return NULL;
+	    if ( !(str = X509_NAME_ENTRY_get_data(entry)) ) {
+            DBG1("X509_NAME_ENTRY_get_data() failed: %s", ERR_error_string(ERR_get_error(),NULL));
+            return results;
+        }
+        if ( (ASN1_STRING_to_UTF8(&txt, str)) < 0) {
+            DBG1("ASN1_STRING_to_UTF8() failed: %s", ERR_error_string(ERR_get_error(),NULL));
+            return results;
+        }
+	    DBG2("%s = [%s]", oid, txt);
+	    results[position++] = clone_str((const char *)txt);
+	    OPENSSL_free(txt);
+	    lastpos = X509_NAME_get_index_by_OBJ(name, obj, lastpos);
 	}
-	return entries;
+	/* no more objects availables in the certificate */
+
+    if (position == 0) {
+        DBG1("Certificate subject does not contain %s entry", oid);
+        return NULL;
+    }
+	return results;
 }
 
 /*
@@ -550,48 +554,7 @@ static char **cert_info_upn(X509 *x509) {
 * Array size is limited to CERT_INFO_MAX_ENTRIES UID's. expected to be enough...
 */
 static char **cert_info_uid(X509 *x509) {
-	static char *results[CERT_INFO_SIZE];
-	int lastpos,position;
-	int uid_type = UID_TYPE;
-        X509_NAME *name = X509_get_subject_name(x509);
-        if (!name) {
-		DBG("Certificate has no subject");
-		return NULL;
-	}
-	for (position=0;position<CERT_INFO_SIZE;position++) results[position]= NULL;
-	position=0;
-	lastpos = X509_NAME_get_index_by_NID(name,uid_type,-1);
-	if (lastpos == -1) {
-		uid_type = NID_userId;
-		lastpos = X509_NAME_get_index_by_NID(name,uid_type,-1);
-		if (lastpos == -1) {
-			DBG("Certificate has no UniqueID");
-			return NULL;
-		}
-	}
-	while( ( lastpos != -1 ) && (position<CERT_INFO_MAX_ENTRIES) ) {
-	    X509_NAME_ENTRY *entry;
-	    ASN1_STRING *str;
-	    unsigned char *txt;
-	    if ( !(entry = X509_NAME_get_entry(name,lastpos)) ) {
-                DBG1("X509_get_name_entry() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-	    if ( !(str = X509_NAME_ENTRY_get_data(entry)) ) {
-                DBG1("X509_NAME_ENTRY_get_data() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-            if ( ( ASN1_STRING_to_UTF8(&txt, str) ) < 0) {
-                DBG1("ASN1_STRING_to_UTF8() failed: %s", ERR_error_string(ERR_get_error(),NULL));
-                return results;
-            }
-	    DBG2("%s = [%s]", OBJ_nid2sn(UID_TYPE), txt);
-	    results[position++]=clone_str((const char *)txt);
-	    OPENSSL_free(txt);
-	    lastpos = X509_NAME_get_index_by_NID(name, UID_TYPE, lastpos);
-	}
-	/* no more UID's availables in certificate */
-	return results;
+    return cert_info_subj_obj(x509, OBJ_nid2obj(NID_userId));
 }
 
 /* convert publickey into PEM format */
