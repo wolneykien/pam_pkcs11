@@ -515,7 +515,7 @@ static char **cert_info_subj_obj(X509 *x509, ASN1_OBJECT *obj) {
 	position = 0;
 	lastpos = X509_NAME_get_index_by_OBJ(name, obj, -1);
     if (lastpos == -1) {
-        DBG("Certificate subject does not contain %s entry", oid);
+        DBG1("Certificate subject does not contain %s entry", oid);
         return NULL;
     }
     
