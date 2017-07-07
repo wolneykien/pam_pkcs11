@@ -2158,8 +2158,17 @@ generic_mapper configuration file shows like:
         # module = /usr/lib/pam_pkcs11/generic_mapper.so;
 	# ignore letter case on match/compare
         ignorecase = false;
-	# Use one of "cn" , "subject" , "kpn" , "email" , "upn" , "uid" or "serial"
+	# Use one of "cn" , "subject" , "kpn" , "email" , "upn" , "uid",
+    # "serial" or any OID value, e.g. 1.2.643.100.3 .
 	cert_item  = cn;
+    # Use scramble flag to hash the extracted value with SHA1 hash
+    scramble = true;
+    # Limit the size of the hashed value to maxlen characters
+    maxlen = 15;
+    # May declare prefix and postfix that are automatically added
+    # to the extracted login values.
+    prefix = auto-;
+    postfix = -user;
 	# Declare mapfile if needed, else select "none"
 	mapfile = file:///etc/pam_pkcs11/generic_mapfile
 	# Decide if use getpwent() to map login
