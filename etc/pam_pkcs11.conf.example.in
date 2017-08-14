@@ -45,7 +45,7 @@ pam_pkcs11 {
   # will bypass pam_pkcs11 if a token was not used to login (The basic idea is
   # you always unlock the screen saver with the same mechanism you used to
   # login).
-  screen_savers = gnome-screensaver, kde4-kscreensaver, kscreensaver, xscreensaver;
+  screen_savers = mate-screensaver, gnome-screensaver, kde4-kscreensaver, kscreensaver, xscreensaver;
 
   # Filename of the PKCS #11 module. The default value is "default"
   use_pkcs11_module = opensc;
