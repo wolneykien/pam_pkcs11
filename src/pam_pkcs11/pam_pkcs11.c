@@ -149,7 +149,7 @@ static int pam_pkcs11_prompt(const pam_handle_t *pamh, int style, char **resp, c
 
 
 /*
- * Gets the users password. Depending whether it was already asked, either
+ * Gets the user password. Depending whether it was already asked, either
  * a prompt is shown or the old value is returned.
  */
 static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, int nitem)
@@ -204,6 +204,43 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
   return PAM_CRED_INSUFFICIENT;
 }
 
+static void _get_pwd_error( pam_handle_t *pamh,
+                            struct configuration_st *configuration )
+{
+    if (!configuration->quiet) {
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _("Error 2316: password could not be read"));
+        sleep(configuration->err_display_time);
+    }
+    pam_syslog(pamh, LOG_ERR,
+               "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
+}
+
+static int check_pwd( pam_handle_t *pamh,
+                      struct configuration_st *configuration,
+                      char **password )
+{
+#ifdef DEBUG_SHOW_PASSWORD
+    DBG1("password = [%s]", password);
+#endif
+
+    /* check password length */
+    if ( !configuration->nullok && strlen(password) == 0 ) {
+        memset(password, 0, strlen(password));
+        pam_syslog(pamh, LOG_ERR,
+                   "password length is zero but the 'nullok' " \
+                   "argument was not defined.");
+        if (!configuration->quiet) {
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2318: Empty smartcard PIN not allowed."));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTH_ERR;
+    }
+
+    return 0;
+}
+
 static int pkcs11_module_load_init(struct configuration_st *configuration,
                                    pkcs11_handle_t **ph)
 {
@@ -243,6 +280,32 @@ static int pkcs11_module_load_init(struct configuration_st *configuration,
             sleep(configuration->err_display_time);
         }
         return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    return rv;
+}
+
+static int pkcs11_open_session( pkcs11_handle_t *ph, struct configuration_st *configuration, unsigned int *slot_num )
+{
+    if (configuration->slot_description != NULL) {
+        rv = find_slot_by_slotlabel_and_tokenlabel(
+                 ph,
+                 configuration->slot_description,
+                 login_token_name,
+                 &slot_num
+        );
+    } else if (configuration->slot_num != -1) {
+        rv = find_slot_by_number_and_label(ph, configuration->slot_num,
+                                           login_token_name, &slot_num);
+    }
+
+    if (rv != 0) {
+        ERR("no suitable token available");
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR, "no suitable token available");
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
+            sleep(configuration->err_display_time);
+        }
     }
 
     return rv;
@@ -391,23 +454,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       return rv;
   }
 
-  /* open pkcs #11 session */
-  if (configuration->slot_description != NULL) {
-    rv = find_slot_by_slotlabel_and_tokenlabel(ph,
-      configuration->slot_description, login_token_name, &slot_num);
-  } else if (configuration->slot_num != -1) {
-    rv = find_slot_by_number_and_label(ph, configuration->slot_num,
-                                     login_token_name, &slot_num);
-  }
+  rv = pkcs11_open_session( ph, configuration, &slot_num );
 
   if (rv != 0) {
-    ERR("no suitable token available");
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "no suitable token available");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
-		sleep(configuration->err_display_time);
-	}
-
     if (!configuration->card_only) {
       release_pkcs11_module(ph);
       return PAM_AUTHINFO_UNAVAIL;
@@ -521,30 +570,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
 		}
 		if (rv != PAM_SUCCESS) {
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
-				sleep(configuration->err_display_time);
-			}
+            _get_pwd_error( pamh, configuration );
 			release_pkcs11_module(ph);
-			pam_syslog(pamh, LOG_ERR,
-					"pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 			return pkcs11_pam_fail;
 		}
-#ifdef DEBUG_SHOW_PASSWORD
-		DBG1("password = [%s]", password);
-#endif
 
-		/* check password length */
-		if (!configuration->nullok && strlen(password) == 0) {
+        rv = check_pwd( pamh, configuration, &password );
+        if ( rv != 0 ) {
 			release_pkcs11_module(ph);
-			memset(password, 0, strlen(password));
 			free(password);
-			pam_syslog(pamh, LOG_ERR,
-					"password length is zero but the 'nullok' argument was not defined.");
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
-				sleep(configuration->err_display_time);
-			}
 			return PAM_AUTH_ERR;
 		}
 	}
@@ -895,6 +929,8 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, con
 PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   char *login_token_name;
+  char *old_pass;
+  char *new_pass;
 
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
   if (login_token_name) {
@@ -907,21 +943,128 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return rv;
       }
 
-      rv = get_slot_protected_authentication_path(ph);
+      rv = pkcs11_open_session( ph, configuration, &slot_num );
+      if ( rv != 0 ) {
+          release_pkcs11_module(ph);
+          return PAM_AUTHINFO_UNAVAIL;
+      }
+
+      rv = get_slot_protected_authentication_path( ph );
       if ((-1 == rv) || (0 == rv)) {
           /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+          char password_prompt[128];
+          char *confirm;
+
+          /* Old PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   _("Old %s PIN: "), _(configuration->token_type));
+          rv = pam_get_pwd(pamh, &old_pass, password_prompt,
+                           0, PAM_AUTHTOK);
+
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration );
+              release_pkcs11_module(ph);
+              return PAM_AUTHTOK_RECOVERY_ERR;
+          }
+
+          rv = check_pwd( pamh, configuration, &old_pass );
+          if ( rv != 0 ) {
+              release_pkcs11_module(ph);
+              free(old_pass);
+              return PAM_AUTHTOK_RECOVERY_ERR;
+          }
+
+          /* New PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   _("New %s PIN: "), _(configuration->token_type));
+          rv = pam_get_pwd(pamh, &new_pass, password_prompt,
+                           0, PAM_AUTHTOK);
           
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration );
+              release_pkcs11_module(ph);
+              return PAM_AUTHTOK_ERR;
+          }
+
+          rv = check_pwd( pamh, configuration, &new_pass );
+          if ( rv != 0 ) {
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );
+              free( old_pass );
+              free( new_pass );
+              return PAM_AUTHTOK_ERR;
+          }
+
+          /* Confirm new PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   _("Confirm new PIN: "));
+          rv = pam_get_pwd(pamh, &confirm, password_prompt,
+                           0, PAM_AUTHTOK);
+          
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration );
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );
+              free( old_pass );
+              memset( new_pass, 0, strlen(new_pass) );
+              free( new_pass );
+              return PAM_AUTHTOK_ERR;
+          }
+
+          if ( strcmp(new_pass, confirm) != 0 ) {
+              ERR("Confirm PIN mismatch");
+              if (!configuration->quiet) {
+                  pam_syslog(pamh, LOG_ERR, "Confirm PIN mismatch");
+                  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                             _("Confirm PIN mismatch"));
+                  sleep(configuration->err_display_time);
+              }
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );              
+              free( old_pass );
+              memset( new_pass, 0, strlen(new_pass) );
+              free( new_pass );
+              memset( confirm, 0, strlen(confirm) );
+              free( confirm );
+              return PAM_AUTHTOK_ERR;
+          } else {
+              memset( confirm, 0, strlen(confirm) );
+              free( confirm );
+          }
       } else {
           pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                      _("Now use the pinpad to change your %s PIN"),
                      _(configuration->token_type));
-          password = NULL;
+          old_pass = NULL;
+          new_pass = NULL;
       }
       
-      /*rv = C_SetPIN(
-        hSession, oldPin, sizeof(oldPin)-1, newPin, sizeof(newPin)-1);
-        if (rv == CKR_OK) {
-      */
+      rv = h->fl->C_SetPIN( h->session, old_pass, strlen(old_pass),
+                            new_pass, strlen(new_pass) );
+
+      release_pkcs11_module(ph);
+
+      if ( old_pass ) {
+          memset( old_pass, 0, strlen(old_pass) );              
+          free( old_pass );
+      }
+      if ( new_pass) {
+          memset( new_pass, 0, strlen(new_pass) );
+          free( new_pass );
+      }
+
+      if (rv == CKR_OK) {
+          return PAM_SUCCESS;
+      } else {
+          ERR("C_SetPIN error");
+          if (!configuration->quiet) {
+              pam_syslog(pamh, LOG_ERR, "C_SetPIN error");
+              pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                         _("Error: Unable to set new PIN"));
+              sleep(configuration->err_display_time);
+          }
+          return PAM_ERROR;
+      }
   } else {
       return PAM_USER_UNKNOWN;
   }
