@@ -204,6 +204,50 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
   return PAM_CRED_INSUFFICIENT;
 }
 
+static int pkcs11_module_load_init(struct configuration_st *configuration,
+                                   pkcs11_handle_t **ph)
+{
+    int rv;
+    
+    /* load pkcs #11 module */
+    DBG("loading pkcs #11 module...");
+    rv = load_pkcs11_module(configuration->pkcs11_modulepath, &ph);
+    
+    if (rv != 0) {
+        ERR2("load_pkcs11_module() failed loading %s: %s",
+             configuration->pkcs11_modulepath, get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "load_pkcs11_module() failed loading %s: %s",
+                       configuration->pkcs11_modulepath, get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2302: PKCS#11 module failed loading"));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    /* initialise pkcs #11 module */
+    DBG("initializing pkcs #11 module...");
+    rv = init_pkcs11_module(ph, configuration->support_threads);
+
+    if (rv != 0) {
+        release_pkcs11_module(ph);
+        ERR1("init_pkcs11_module() failed: %s", get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "init_pkcs11_module() failed: %s",
+                       get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2304: PKCS#11 module could not be initialized"));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    return rv;
+}
+
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   int i, rv;
@@ -342,33 +386,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return PAM_IGNORE;
   }
 
-  /* load pkcs #11 module */
-  DBG("loading pkcs #11 module...");
-  rv = load_pkcs11_module(configuration->pkcs11_modulepath, &ph);
-  if (rv != 0) {
-    ERR2("load_pkcs11_module() failed loading %s: %s",
-		configuration->pkcs11_modulepath, get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "load_pkcs11_module() failed loading %s: %s",
-			configuration->pkcs11_modulepath, get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2302: PKCS#11 module failed loading"));
-		sleep(configuration->err_display_time);
-	}
-    return PAM_AUTHINFO_UNAVAIL;
-  }
-
-  /* initialise pkcs #11 module */
-  DBG("initialising pkcs #11 module...");
-  rv = init_pkcs11_module(ph,configuration->support_threads);
-  if (rv != 0) {
-    release_pkcs11_module(ph);
-    ERR1("init_pkcs11_module() failed: %s", get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "init_pkcs11_module() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2304: PKCS#11 module could not be initialized"));
-		sleep(configuration->err_display_time);
-	}
-    return PAM_AUTHINFO_UNAVAIL;
+  rv = pkcs11_module_load_init( configuration, &ph );
+  if ( rv != 0 ) {
+      return rv;
   }
 
   /* open pkcs #11 session */
@@ -876,16 +896,35 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 {
   char *login_token_name;
 
-  ERR("Warning: Function pam_sm_chauthtok() is not implemented in this module");
-  pam_syslog(pamh, LOG_WARNING,
-             "Function pam_sm_chauthtok() is not implemented in this module");
-
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
-  if (login_token_name && (flags & PAM_PRELIM_CHECK)) {
-    pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-               _("Cannot change the password on your smart card."));
+  if (login_token_name) {
+      if (flags & PAM_PRELIM_CHECK) {
+          return PAM_SUCCESS;
+      }
+      
+      rv = pkcs11_module_load_init( configuration, &ph );
+      if ( rv != 0 ) {
+          return rv;
+      }
+
+      rv = get_slot_protected_authentication_path(ph);
+      if ((-1 == rv) || (0 == rv)) {
+          /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+          
+      } else {
+          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                     _("Now use the pinpad to change your %s PIN"),
+                     _(configuration->token_type));
+          password = NULL;
+      }
+      
+      /*rv = C_SetPIN(
+        hSession, oldPin, sizeof(oldPin)-1, newPin, sizeof(newPin)-1);
+        if (rv == CKR_OK) {
+      */
+  } else {
+      return PAM_USER_UNKNOWN;
   }
-  return PAM_SERVICE_ERR;
 }
 
 #ifdef PAM_STATIC
