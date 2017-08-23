@@ -1414,6 +1414,20 @@ int pkcs11_login(pkcs11_handle_t *h, char *password)
   return 0;
 }
 
+int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
+{
+    int rv;
+
+    rv = h->fl->C_SetPIN( h->session, old_pass, strlen(old_pass),
+                          new_pass, strlen(new_pass) );
+
+    if ( rv != CKR_OK ) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 int get_slot_login_required(pkcs11_handle_t *h)
 {
   int rv;

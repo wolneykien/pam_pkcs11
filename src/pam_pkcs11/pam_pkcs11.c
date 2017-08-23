@@ -205,7 +205,8 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
 }
 
 static void _get_pwd_error( pam_handle_t *pamh,
-                            struct configuration_st *configuration )
+                            struct configuration_st *configuration,
+                            int rv )
 {
     if (!configuration->quiet) {
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
@@ -218,7 +219,7 @@ static void _get_pwd_error( pam_handle_t *pamh,
 
 static int check_pwd( pam_handle_t *pamh,
                       struct configuration_st *configuration,
-                      char **password )
+                      char *password )
 {
 #ifdef DEBUG_SHOW_PASSWORD
     DBG1("password = [%s]", password);
@@ -241,14 +242,15 @@ static int check_pwd( pam_handle_t *pamh,
     return 0;
 }
 
-static int pkcs11_module_load_init(struct configuration_st *configuration,
-                                   pkcs11_handle_t **ph)
+static int pkcs11_module_load_init( pam_handle_t *pamh,
+                                    struct configuration_st *configuration,
+                                    pkcs11_handle_t **ph )
 {
     int rv;
     
     /* load pkcs #11 module */
     DBG("loading pkcs #11 module...");
-    rv = load_pkcs11_module(configuration->pkcs11_modulepath, &ph);
+    rv = load_pkcs11_module(configuration->pkcs11_modulepath, ph);
     
     if (rv != 0) {
         ERR2("load_pkcs11_module() failed loading %s: %s",
@@ -266,10 +268,10 @@ static int pkcs11_module_load_init(struct configuration_st *configuration,
 
     /* initialise pkcs #11 module */
     DBG("initializing pkcs #11 module...");
-    rv = init_pkcs11_module(ph, configuration->support_threads);
+    rv = init_pkcs11_module( *ph, configuration->support_threads );
 
     if (rv != 0) {
-        release_pkcs11_module(ph);
+        release_pkcs11_module( *ph );
         ERR1("init_pkcs11_module() failed: %s", get_error());
         if (!configuration->quiet) {
             pam_syslog(pamh, LOG_ERR,
@@ -285,18 +287,22 @@ static int pkcs11_module_load_init(struct configuration_st *configuration,
     return rv;
 }
 
-static int pkcs11_open_session( pkcs11_handle_t *ph, struct configuration_st *configuration, unsigned int *slot_num )
+static int pkcs11_open_session( pam_handle_t *pamh,
+                                struct configuration_st *configuration,
+                                const char *login_token_name,
+                                pkcs11_handle_t *ph,
+                                unsigned int *slot_num )
 {
     if (configuration->slot_description != NULL) {
         rv = find_slot_by_slotlabel_and_tokenlabel(
                  ph,
                  configuration->slot_description,
                  login_token_name,
-                 &slot_num
+                 slot_num
         );
     } else if (configuration->slot_num != -1) {
         rv = find_slot_by_number_and_label(ph, configuration->slot_num,
-                                           login_token_name, &slot_num);
+                                           login_token_name, slot_num);
     }
 
     if (rv != 0) {
@@ -449,12 +455,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return PAM_IGNORE;
   }
 
-  rv = pkcs11_module_load_init( configuration, &ph );
+  rv = pkcs11_module_load_init( pamh, configuration, &ph );
   if ( rv != 0 ) {
       return rv;
   }
 
-  rv = pkcs11_open_session( ph, configuration, &slot_num );
+  rv = pkcs11_open_session( pamh, configuration, login_token_name, ph, &slot_num );
 
   if (rv != 0) {
     if (!configuration->card_only) {
@@ -570,12 +576,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
 		}
 		if (rv != PAM_SUCCESS) {
-            _get_pwd_error( pamh, configuration );
+            _get_pwd_error( pamh, configuration, rv );
 			release_pkcs11_module(ph);
 			return pkcs11_pam_fail;
 		}
 
-        rv = check_pwd( pamh, configuration, &password );
+        rv = check_pwd( pamh, configuration, password );
         if ( rv != 0 ) {
 			release_pkcs11_module(ph);
 			free(password);
@@ -938,12 +944,12 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_SUCCESS;
       }
       
-      rv = pkcs11_module_load_init( configuration, &ph );
+      rv = pkcs11_module_load_init( pamh, configuration, &ph );
       if ( rv != 0 ) {
           return rv;
       }
 
-      rv = pkcs11_open_session( ph, configuration, &slot_num );
+      rv = pkcs11_open_session( pamh, configuration, login_token_name, ph, &slot_num );
       if ( rv != 0 ) {
           release_pkcs11_module(ph);
           return PAM_AUTHINFO_UNAVAIL;
@@ -962,12 +968,12 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                            0, PAM_AUTHTOK);
 
           if (rv != PAM_SUCCESS) {
-              _get_pwd_error( pamh, configuration );
+              _get_pwd_error( pamh, configuration, rv );
               release_pkcs11_module(ph);
               return PAM_AUTHTOK_RECOVERY_ERR;
           }
 
-          rv = check_pwd( pamh, configuration, &old_pass );
+          rv = check_pwd( pamh, configuration, old_pass );
           if ( rv != 0 ) {
               release_pkcs11_module(ph);
               free(old_pass);
@@ -981,12 +987,12 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                            0, PAM_AUTHTOK);
           
           if (rv != PAM_SUCCESS) {
-              _get_pwd_error( pamh, configuration );
+              _get_pwd_error( pamh, configuration, rv );
               release_pkcs11_module(ph);
               return PAM_AUTHTOK_ERR;
           }
 
-          rv = check_pwd( pamh, configuration, &new_pass );
+          rv = check_pwd( pamh, configuration, new_pass );
           if ( rv != 0 ) {
               release_pkcs11_module(ph);
               memset( old_pass, 0, strlen(old_pass) );
@@ -1002,7 +1008,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                            0, PAM_AUTHTOK);
           
           if (rv != PAM_SUCCESS) {
-              _get_pwd_error( pamh, configuration );
+              _get_pwd_error( pamh, configuration, rv );
               release_pkcs11_module(ph);
               memset( old_pass, 0, strlen(old_pass) );
               free( old_pass );
@@ -1039,9 +1045,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           new_pass = NULL;
       }
       
-      rv = h->fl->C_SetPIN( h->session, old_pass, strlen(old_pass),
-                            new_pass, strlen(new_pass) );
-
+      rv = pkcs11_setpin( ph, old_pass, new_pass );
       release_pkcs11_module(ph);
 
       if ( old_pass ) {
@@ -1053,7 +1057,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           free( new_pass );
       }
 
-      if (rv == CKR_OK) {
+      if ( rv == 0 ) {
           return PAM_SUCCESS;
       } else {
           ERR("C_SetPIN error");
@@ -1063,7 +1067,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                          _("Error: Unable to set new PIN"));
               sleep(configuration->err_display_time);
           }
-          return PAM_ERROR;
+          return PAM_AUTHTOK_ERR;
       }
   } else {
       return PAM_USER_UNKNOWN;
