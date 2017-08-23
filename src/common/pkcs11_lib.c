@@ -1422,6 +1422,8 @@ int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
                           new_pass, strlen(new_pass) );
 
     if ( rv != CKR_OK ) {
+        DBG1("C_SetPIN() failed: 0x%08lX", rv);
+        set_error("C_SetPIN() failed: 0x%08lX", rv);
         return -1;
     } else {
         return 0;

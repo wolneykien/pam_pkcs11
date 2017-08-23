@@ -287,13 +287,13 @@ static int pkcs11_module_load_init( pam_handle_t *pamh,
     return rv;
 }
 
-static int pkcs11_open_session( pam_handle_t *pamh,
-                                struct configuration_st *configuration,
-                                const char *login_token_name,
-                                pkcs11_handle_t *ph,
-                                unsigned int *slot_num )
+static int pkcs11_find_slot( pam_handle_t *pamh,
+                             struct configuration_st *configuration,
+                             const char *login_token_name,
+                             pkcs11_handle_t *ph,
+                             unsigned int *slot_num )
 {
-    int rv = 0;
+    int rv = -1;
     
     if (configuration->slot_description != NULL) {
         rv = find_slot_by_slotlabel_and_tokenlabel(
@@ -314,6 +314,47 @@ static int pkcs11_open_session( pam_handle_t *pamh,
             pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
             sleep(configuration->err_display_time);
         }
+    }
+
+    return rv;
+}
+
+static int pkcs11_open_session( pam_handle_t *pamh,
+                                struct configuration_st *configuration,
+                                pkcs11_handle_t *ph,
+                                unsigned int slot_num )
+{
+    int rv;
+    
+    rv = open_pkcs11_session(ph, slot_num);
+    
+    if (rv != 0) {
+        ERR1("open_pkcs11_session() failed: %s", get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2312: open PKCS#11 session failed"));
+            sleep(configuration->err_display_time);
+        }
+    }
+
+    return rv;
+}
+
+static int pkcs11_close_session( pam_handle_t *pamh,
+                                 struct configuration_st *configuration,
+                                 pkcs11_handle_t *ph )
+{
+    int rv;
+
+    rv = close_pkcs11_session(ph);
+    
+    if (rv != 0) {
+        ERR1("close_pkcs11_session() failed: %s", get_error());
+		if (!configuration->quiet) {
+			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
+			sleep(configuration->err_display_time);
+		}
     }
 
     return rv;
@@ -462,7 +503,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       return rv;
   }
 
-  rv = pkcs11_open_session( pamh, configuration, login_token_name, ph, &slot_num );
+  rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
 
   if (rv != 0) {
     if (!configuration->card_only) {
@@ -535,14 +576,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
 		  _("%s found."), _(configuration->token_type));
   }
-  rv = open_pkcs11_session(ph, slot_num);
+
+  rv = pkcs11_open_session( pamh, configuration, ph, slot_num );
   if (rv != 0) {
-    ERR1("open_pkcs11_session() failed: %s", get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2312: open PKCS#11 session failed"));
-		sleep(configuration->err_display_time);
-	}
     release_pkcs11_module(ph);
     return pkcs11_pam_fail;
   }
@@ -873,15 +909,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   unload_mappers();
 
   /* close pkcs #11 session */
-  rv = close_pkcs11_session(ph);
+  rv = pkcs11_close_session( pamh, configuration, ph );
   if (rv != 0) {
     release_pkcs11_module(ph);
-    ERR1("close_pkcs11_session() failed: %s", get_error());
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
-			sleep(configuration->err_display_time);
-		}
     return pkcs11_pam_fail;
   }
 
@@ -961,8 +991,14 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return rv;
       }
 
-      rv = pkcs11_open_session( pamh, configuration, login_token_name, ph, &slot_num );
+      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
       if ( rv != 0 ) {
+          release_pkcs11_module(ph);
+          return PAM_AUTHINFO_UNAVAIL;
+      }
+
+      rv = pkcs11_open_session( pamh, configuration, ph, slot_num );
+      if (rv != 0) {
           release_pkcs11_module(ph);
           return PAM_AUTHINFO_UNAVAIL;
       }
@@ -1058,7 +1094,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       }
       
       rv = pkcs11_setpin( ph, old_pass, new_pass );
-      release_pkcs11_module(ph);
+      pkcs11_close_session( pamh, configuration, ph );
+      release_pkcs11_module( ph );
 
       if ( old_pass ) {
           memset( old_pass, 0, strlen(old_pass) );              
