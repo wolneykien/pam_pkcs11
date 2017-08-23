@@ -293,6 +293,8 @@ static int pkcs11_open_session( pam_handle_t *pamh,
                                 pkcs11_handle_t *ph,
                                 unsigned int *slot_num )
 {
+    int rv = 0;
+    
     if (configuration->slot_description != NULL) {
         rv = find_slot_by_slotlabel_and_tokenlabel(
                  ph,
@@ -935,13 +937,23 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, con
 PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   char *login_token_name;
-  char *old_pass;
-  char *new_pass;
 
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
   if (login_token_name) {
+      char *old_pass;
+      char *new_pass;
+      int rv; unsigned int slot_num;
+      struct configuration_st *configuration;
+      pkcs11_handle_t *ph;
+      
       if (flags & PAM_PRELIM_CHECK) {
           return PAM_SUCCESS;
+      }
+
+      configuration = pk_configure(argc,argv);
+      if (!configuration ) {
+          ERR("Error setting configuration parameters");
+          return PAM_AUTHINFO_UNAVAIL;
       }
       
       rv = pkcs11_module_load_init( pamh, configuration, &ph );
