@@ -54,7 +54,7 @@ PKCS11_EXTERN int wait_for_token_by_slotlabel(pkcs11_handle_t *h,
                                  unsigned int *slot);
 PKCS11_EXTERN const X509 *get_X509_certificate(cert_object_t *cert);
 PKCS11_EXTERN void release_pkcs11_module(pkcs11_handle_t *h);
-PKCS11_EXTERN int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot);
+PKCS11_EXTERN int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw);
 PKCS11_EXTERN int close_pkcs11_session(pkcs11_handle_t *h);
 PKCS11_EXTERN int pkcs11_login(pkcs11_handle_t *h, char *password);
 PKCS11_EXTERN int pkcs11_pass_login(pkcs11_handle_t *h, int nullok);

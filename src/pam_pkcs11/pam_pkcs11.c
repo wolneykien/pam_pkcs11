@@ -322,11 +322,12 @@ static int pkcs11_find_slot( pam_handle_t *pamh,
 static int pkcs11_open_session( pam_handle_t *pamh,
                                 struct configuration_st *configuration,
                                 pkcs11_handle_t *ph,
-                                unsigned int slot_num )
+                                unsigned int slot_num,
+                                int rw )
 {
     int rv;
     
-    rv = open_pkcs11_session(ph, slot_num);
+    rv = open_pkcs11_session( ph, slot_num, rw );
     
     if (rv != 0) {
         ERR1("open_pkcs11_session() failed: %s", get_error());
@@ -577,7 +578,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		  _("%s found."), _(configuration->token_type));
   }
 
-  rv = pkcs11_open_session( pamh, configuration, ph, slot_num );
+  rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 0 );
   if (rv != 0) {
     release_pkcs11_module(ph);
     return pkcs11_pam_fail;
@@ -997,7 +998,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_AUTHINFO_UNAVAIL;
       }
 
-      rv = pkcs11_open_session( pamh, configuration, ph, slot_num );
+      rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
       if (rv != 0) {
           release_pkcs11_module(ph);
           return PAM_AUTHINFO_UNAVAIL;

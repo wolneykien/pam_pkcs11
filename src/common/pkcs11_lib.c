@@ -1379,21 +1379,29 @@ int wait_for_token(pkcs11_handle_t *h,
   return rv;
 }
 
-int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot)
+int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw)
 {
   int rv;
-
-  DBG1("opening a new PKCS #11 session for slot %d", slot + 1);
+  
+  DBG1("opening a new %s PKCS #11 session for slot %d",
+       rw ? "R/W" : "RO", slot + 1);
   if (slot >= h->slot_count) {
     set_error("invalid slot number %d", slot);
     return -1;
   }
-  /* open a readonly user-session */
-  rv = h->fl->C_OpenSession(h->slots[slot].id, CKF_SERIAL_SESSION, NULL, NULL, &h->session);
+  
+  unsigned int flags = CKF_SERIAL_SESSION;
+  if ( rw ) {
+    flags |= CKF_RW_SESSION;
+  }
+  DBG1("C_OpenSession flags: 0x%08lX", flags);
+  
+  rv = h->fl->C_OpenSession(h->slots[slot].id, flags, NULL, NULL, &h->session);
   if (rv != CKR_OK) {
     set_error("C_OpenSession() failed: 0x%08lX", rv);
     return -1;
   }
+
   h->current_slot = slot;
   return 0;
 }
