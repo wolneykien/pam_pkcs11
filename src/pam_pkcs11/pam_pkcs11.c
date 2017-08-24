@@ -995,7 +995,11 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
       if ( rv != 0 ) {
           release_pkcs11_module(ph);
-          return PAM_AUTHINFO_UNAVAIL;
+          if ( configuration->card_only ) {
+              return PAM_AUTHINFO_UNAVAIL;
+          } else {
+              return PAM_IGNORE;
+          }
       }
 
       rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
