@@ -1383,7 +1383,7 @@ int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw)
 {
   int rv;
   
-  DBG1("opening a new %s PKCS #11 session for slot %d",
+  DBG2("opening a new %s PKCS #11 session for slot %d",
        rw ? "R/W" : "RO", slot + 1);
   if (slot >= h->slot_count) {
     set_error("invalid slot number %d", slot);
