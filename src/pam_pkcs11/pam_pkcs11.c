@@ -1123,7 +1123,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_AUTHTOK_ERR;
       }
   } else {
-      return PAM_USER_UNKNOWN;
+      return PAM_IGNORE;
   }
 }
 
