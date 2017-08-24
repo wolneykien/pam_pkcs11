@@ -1093,8 +1093,11 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           old_pass = NULL;
           new_pass = NULL;
       }
-      
-      rv = pkcs11_setpin( ph, old_pass, new_pass );
+
+      rv = pkcs11_login( ph, old_pass );
+      if ( rv == 0 ) {
+          rv = pkcs11_setpin( ph, old_pass, new_pass );
+      }
       pkcs11_close_session( pamh, configuration, ph );
       release_pkcs11_module( ph );
 
