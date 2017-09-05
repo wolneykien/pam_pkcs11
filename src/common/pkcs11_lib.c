@@ -951,6 +951,9 @@ struct pkcs11_handle_str {
   cert_object_t **certs;
   int cert_count;
   int current_slot;
+  char **bl_mfact;
+  char **bl_desc;
+  int bl_soft;
 };
 
 
@@ -1017,11 +1020,36 @@ int load_pkcs11_module(const char *module, pkcs11_handle_t **hp)
     free(h);
     return -1;
   }
+
+  h->bl_soft = 1; // Blacklist soft slots by default.
+  
   *hp = h;
   return 0;
 }
 
 static int
+slot_blacklisted( pkcs11_handle_t *h, CK_SLOT_INFO *sinfo )
+{
+    char **bl_mfact = h->bl_mfact;
+    while ( bl_mfact != NULL ) {
+        if ( 0 == strncmp(sinfo->manufacturerID, *bl_mfact, 64) ) {
+            return 1;
+        }
+        bl_mfact++;
+    }
+
+    char **bl_desc = h->bl_desc;
+    while ( bl_desc != NULL ) {
+        if ( 0 == strncmp(sinfo->slotDescription, *bl_desc, 32) ) {
+            return 1;
+        }
+        bl_desc++;
+    }
+    
+    return 0;
+}
+
+int
 refresh_slots(pkcs11_handle_t *h)
 {
   CK_ULONG i, slot_count;
@@ -1096,7 +1124,18 @@ refresh_slots(pkcs11_handle_t *h)
     DBG1("- description: %.64s", sinfo.slotDescription);
     DBG1("- manufacturer: %.32s", sinfo.manufacturerID);
     DBG1("- flags: %04lx", sinfo.flags);
+    DBG2("- HW version: %02x.%02x", sinfo.hardwareVersion.major, sinfo.hardwareVersion.minor);
+    DBG2("- FW version: %02x.%02x", sinfo.firmwareVersion.major, sinfo.firmwareVersion.minor);
+    
     if (sinfo.flags & CKF_TOKEN_PRESENT) {
+      if ( h->bl_soft && !(sinfo.flags & CKF_HW_SLOT) ) {
+          DBG("Skip soft slot as requested");
+          continue;
+      }
+      if ( slot_blacklisted(h, &sinfo) ) {
+          DBG("Skip blacklisted slot");
+          continue;
+      }
       DBG("- token:");
       rv = h->fl->C_GetTokenInfo(h->slots[i].id, &tinfo);
       if (rv != CKR_OK) {
@@ -1116,7 +1155,14 @@ refresh_slots(pkcs11_handle_t *h)
   return 0;
 }
 
-int init_pkcs11_module(pkcs11_handle_t *h,int flag)
+void set_slot_blacklist( pkcs11_handle_t *h, char **bl_mfact, char **bl_desc, int bl_soft )
+{
+    h->bl_mfact = bl_mfact;
+    h->bl_desc = bl_desc;
+    h->bl_soft = bl_soft;
+}
+
+int init_pkcs11_module(pkcs11_handle_t *h, int flag)
 {
   int rv;
   CK_ULONG i;
