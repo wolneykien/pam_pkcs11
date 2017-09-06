@@ -1117,8 +1117,8 @@ refresh_slots(pkcs11_handle_t *h)
     DBG1("slot %ld:", i + 1);
     rv = h->fl->C_GetSlotInfo(h->slots[i].id, &sinfo);
     if (rv != CKR_OK) {
-      set_error("C_GetSlotInfo() failed: 0x%08lX", rv);
-      return -1;
+      DBG1("C_GetSlotInfo() failed: 0x%08lX", rv);
+      continue;
     }
 
     (void) memcpy(h->slots[i].slotDescription, sinfo.slotDescription,
@@ -1142,8 +1142,8 @@ refresh_slots(pkcs11_handle_t *h)
       DBG("- token:");
       rv = h->fl->C_GetTokenInfo(h->slots[i].id, &tinfo);
       if (rv != CKR_OK) {
-        set_error("C_GetTokenInfo() failed: 0x%08lX", rv);
-        return -1;
+        DBG1("C_GetTokenInfo() failed: 0x%08lX", rv);
+        continue;
       }
       DBG1("  - label: %.32s", tinfo.label);
       DBG1("  - manufacturer: %.32s", tinfo.manufacturerID);
@@ -1156,6 +1156,7 @@ refresh_slots(pkcs11_handle_t *h)
       for (j = 31; h->slots[i].label[j] == ' '; j--) h->slots[i].label[j] = 0;
     }
   }
+  
   return 0;
 }
 

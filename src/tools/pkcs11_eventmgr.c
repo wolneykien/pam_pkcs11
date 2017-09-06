@@ -430,7 +430,11 @@ static int get_a_token(void)
 	int rv;
 	unsigned int slot_num;
     rv = refresh_slots( ph );
-	if (rv != 0) return CARD_ERROR;
+	if (rv != 0) {
+        DBG("Error while searching for tokens!");
+        return CARD_NOT_PRESENT;
+    }
+    
     rv = find_slot_by_number( ph, 0, &slot_num);
     if (rv != 0) {
         DBG("No tokens found");
