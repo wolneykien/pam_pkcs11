@@ -1111,6 +1111,9 @@ refresh_slots(pkcs11_handle_t *h)
     CK_TOKEN_INFO tinfo;
     CK_RV rv;
 
+    h->slots[i].token_present = FALSE;
+    memset(h->slots[i].label, 0, 32);
+
     DBG1("slot %ld:", i + 1);
     rv = h->fl->C_GetSlotInfo(h->slots[i].id, &sinfo);
     if (rv != CKR_OK) {
@@ -1147,6 +1150,7 @@ refresh_slots(pkcs11_handle_t *h)
       DBG1("  - model: %.16s", tinfo.model);
       DBG1("  - serial: %.16s", tinfo.serialNumber);
       DBG1("  - flags: %04lx", tinfo.flags);
+      
       h->slots[i].token_present = TRUE;
       memcpy(h->slots[i].label, tinfo.label, 32);
       for (j = 31; h->slots[i].label[j] == ' '; j--) h->slots[i].label[j] = 0;

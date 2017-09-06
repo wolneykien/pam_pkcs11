@@ -436,7 +436,7 @@ static int get_a_token(void)
         DBG("No tokens found");
         return CARD_NOT_PRESENT;
     } else {
-        DBG("Found a token");
+        DBG1("Found a token 0x%x", slot_num);
         return CARD_PRESENT;
     }
 }
