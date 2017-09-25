@@ -232,7 +232,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   textdomain(PACKAGE);
 #endif
 
-  pam_prompt(pamh, PAM_TEXT_INFO , NULL, _("Smartcard authentication starts"));
+  pam_prompt(pamh, PAM_TEXT_INFO , NULL, _(configuration.prompts.start_auth));
 
   /* first of all check whether debugging should be enabled */
   for (i = 0; i < argc; i++)
@@ -321,7 +321,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	rv = pam_get_item(pamh, PAM_USER, &user);
 	if (rv != PAM_SUCCESS || user == NULL || user[0] == '\0') {
 	  pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _("Please insert your %s or enter your username."),
+		  _(configuration.prompts.wait_insert),
 		  _(configuration->token_type));
 	  /* get user name */
 	  rv = pam_get_user(pamh, &user, NULL);
@@ -384,7 +384,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR("no suitable token available");
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "no suitable token available");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_token));
 		sleep(configuration->err_display_time);
 	}
 
@@ -398,11 +398,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (login_token_name || configuration->wait_for_card) {
       if (login_token_name) {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_("Please insert your smart card called \"%.32s\"."),
+			_(configuration.prompts.insert_named),
 			login_token_name);
       } else {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 _("Please insert your smart card."));
+                 _(configuration.prompts.insert));
       }
 
       if (configuration->slot_description != NULL) {
@@ -419,7 +419,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
     } else if (user) {
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2308: No smartcard found"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
@@ -430,7 +430,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       /* we haven't prompted for the user yet, get the user and see if
        * the smart card has been inserted in the mean time */
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-	    _("Please insert your %s or enter your username."),
+	    _(configuration.prompts.insert_or_enter),
 		_(configuration->token_type));
       rv = pam_get_user(pamh, &user, NULL);
 
@@ -446,7 +446,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (rv != 0) {
         /* user gave us a user id and no smart card go to next module */
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2310: No smartcard found"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
@@ -456,7 +456,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     }
   } else {
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _("%s found."), _(configuration->token_type));
+		  _(configuration.prompts.found), _(configuration->token_type));
   }
   rv = open_pkcs11_session(ph, slot_num);
   if (rv != 0) {
@@ -475,7 +475,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR1("get_slot_login_required() failed: %s", get_error());
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.login_failed));
 		sleep(configuration->err_display_time);
 	}
     release_pkcs11_module(ph);

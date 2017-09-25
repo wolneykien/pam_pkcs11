@@ -36,37 +36,7 @@
 * configuration related functions
 */
 
-struct configuration_st configuration = {
-	CONFDIR "/pam_pkcs11.conf",	/* char * config_file; */
-	NULL,				/* scconf_context *ctx; */
-        0,				/* int debug; */
-        0,				/* int nullok; */
-        0,				/* int try_first_pass; */
-        0,				/* int use_first_pass; */
-        0,				/* int use_authok; */
-        0,				/* int card_only; */
-        0,				/* int wait_for_card; */
-        "default", 			/* const char *pkcs11_module; */
-        CONFDIR "/pkcs11_module.so",/* const char *pkcs11_module_path; */
-        NULL,                           /* screen savers */
-        NULL,			/* slot_description */
-        -1,				/* int slot_num; */
-	0,				/* support threads */
-	/* cert policy; */
-        {
-		0,
-		CRLP_NONE,
-		0,
-		CONFDIR "/cacerts",
-		CONFDIR "/crls",
-		CONFDIR "/nssdb",
-		OCSP_NONE
-	},
-	N_("Smart card"),			/* token_type */
-	NULL,				/* char *username */
-	0,                               /* int quiet */
-	0			/* err_display_time */
-};
+struct configuration_st configuration;
 
 #ifdef DEBUG_CONFIG
 static void display_config (void) {
@@ -89,9 +59,47 @@ static void display_config (void) {
         DBG1("crl_policy %d",configuration.policy.crl_policy);
         DBG1("signature_policy %d",configuration.policy.signature_policy);
         DBG1("ocsp_policy %d",configuration.policy.ocsp_policy);
-		DBG1("err_display_time %d", configuration.err_display_time);
+        DBG1("err_display_time %d", configuration.err_display_time);
+
+        DBG("--- Prompts ---");
+        DBG1("start_auth: %s", configuration.prompts.start_auth);
 }
 #endif
+
+/*
+Sets the default prompt values.
+*/
+static void init_prompts() {
+    configuration.prompts.start_auth = "Smartcard authentication starts";
+    configuration.prompts.insert_or_enter = "Please insert your %s or enter your username.";
+    configuration.prompts.no_token = "Error 2306: No suitable token available";
+    configuration.prompts.insert_named = "Please insert your smart card called \"%.32s\".";
+    configuration.prompts.insert = "Please insert your smart card.";
+    configuration.prompts.no_card = "Error 2308: No smartcard found";
+    configuration.prompts.found = "%s found.";
+    configuration.prompts.login_failed = "Error 2314: Slot login failed";
+}
+
+/*
+Sets the default config values.
+*/
+static void init_configuration() {
+    memset(&configuration, 0, sizeof(configuration));
+    configuration.config_file = CONFDIR "/pam_pkcs11.conf";
+    configuration.pkcs11_module = "default";
+    configuration.pkcs11_module_path = CONFDIR "/pkcs11_module.so";
+    configuration.slot_num = -1;
+
+    configuration.policy.crl_policy = CRLP_NONE;
+    configuration.policy.ca_dir = CONFDIR "/cacerts";
+    configuration.policy.crl_dir = CONFDIR "/crls";
+    configuration.policy.nss_dir = CONFDIR "/nssdb";
+    configuration.policy.ocsp_policy = OCSP_NONE;
+
+    configuration.token_type = N_("Smart card");
+
+    init_prompts();
+}
 
 /*
 parse configuration file
@@ -226,6 +234,40 @@ static void parse_config_file(void) {
 	   return;
 	}
 	/* load_mappers(ctx); */
+
+    /* Load prompt strings */
+    configuration.prompts.start_auth = \
+        scconf_get_str(root, "prompt_start_auth",
+                       configuration.prompts.start_auth);
+
+    configuration.prompts.insert_or_enter = \
+        scconf_get_str(root, "prompt_insert_or_enter",
+                       configuration.prompts.insert_or_enter);
+
+    configuration.prompts.no_token = \
+        scconf_get_str(root, "prompt_no_token",
+                       configuration.prompts.no_token);
+
+    configuration.prompts.insert_named = \
+        scconf_get_str(root, "prompt_insert_named",
+                       configuration.prompts.insert_named);
+
+    configuration.prompts.insert = \
+        scconf_get_str(root, "prompt_insert",
+                       configuration.prompts.insert);
+
+    configuration.prompts.no_card = \
+        scconf_get_str(root, "prompt_no_card",
+                       configuration.prompts.no_card);
+
+    configuration.prompts.found = \
+        scconf_get_str(root, "prompt_found",
+                       configuration.prompts.found);
+
+    configuration.prompts.login_failed = \
+        scconf_get_str(root, "prompt_login_failed",
+                       configuration.prompts.login_failed);
+
 	/* that's all folks: return */
 	return;
 }

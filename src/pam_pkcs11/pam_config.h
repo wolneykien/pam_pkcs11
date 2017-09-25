@@ -25,6 +25,17 @@
 #include "../scconf/scconf.h"
 #include "../common/cert_vfy.h"
 
+struct prompts_st {
+    const char *start_auth;
+    const char *insert_or_enter;
+    const char *no_token;
+    const char *insert_named;
+    const char *insert;
+    const char *no_card;
+    const char *found;
+    const char *login_failed;
+}
+
 struct configuration_st {
 	const char *config_file;
 	scconf_context *ctx;
@@ -46,6 +57,7 @@ struct configuration_st {
 	const char *username; /* provided user name */
 	int quiet;
 	int err_display_time;
+    struct prompts_st prompts;
 };
 
 struct configuration_st *pk_configure( int argc, const char **argv );
