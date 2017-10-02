@@ -406,6 +406,7 @@ static void parse_config_file(void) {
 * 3- commandline arguments options
 */
 struct configuration_st *pk_configure( int argc, const char **argv ) {
+	init_configuration();
 	int i;
 	/* try to find a configuration file entry */
 	for (i = 0; i < argc; i++) {
