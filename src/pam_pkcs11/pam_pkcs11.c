@@ -321,7 +321,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	rv = pam_get_item(pamh, PAM_USER, &user);
 	if (rv != PAM_SUCCESS || user == NULL || user[0] == '\0') {
 	  pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _(configuration->prompts.wait_insert),
+		  _(configuration->prompts.insert_or_enter),
 		  _(configuration->token_type));
 	  /* get user name */
 	  rv = pam_get_user(pamh, &user, NULL);
@@ -656,7 +656,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           ERR1("match_user() failed: %s", get_error());
 			if (!configuration->quiet) {
 				pam_syslog(pamh, LOG_ERR, "match_user() failed: %s", get_error());
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_user));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_user_match));
 				sleep(configuration->err_display_time);
 			}
 	  goto auth_failed_nopw;
@@ -677,7 +677,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR,
 				"no valid certificate which meets all requirements found");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.promps.no_cert_match));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_cert_match));
 		sleep(configuration->err_display_time);
 	}
     goto auth_failed_nopw;
