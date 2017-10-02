@@ -130,7 +130,7 @@ static void init_configuration() {
     memset(&configuration, 0, sizeof(configuration));
     configuration.config_file = CONFDIR "/pam_pkcs11.conf";
     configuration.pkcs11_module = "default";
-    configuration.pkcs11_module_path = CONFDIR "/pkcs11_module.so";
+    configuration.pkcs11_modulepath = CONFDIR "/pkcs11_module.so";
     configuration.slot_num = -1;
 
     configuration.policy.crl_policy = CRLP_NONE;
@@ -251,10 +251,11 @@ static void parse_prompts(const scconf_block *root) {
     configuration.prompts.sig_verif_failed =                  \
         scconf_get_str(root, "prompt_sig_verif_failed",
                        configuration.prompts.sig_verif_failed);
-
-    // configuration.prompts. =                  \
-    //     scconf_get_str(root, "prompt_",
-    //                    configuration.prompts.);
+        
+    /* configuration.prompts. =                  \
+     *     scconf_get_str(root, "prompt_",
+     *                    configuration.prompts.);
+     */
 }
 
 /*

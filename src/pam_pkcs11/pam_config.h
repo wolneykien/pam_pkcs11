@@ -51,7 +51,7 @@ struct prompts_st {
     const char *checking_sig;
     const char *sig_failed;
     const char *sig_verif_failed;
-}
+};
 
 struct configuration_st {
 	const char *config_file;
