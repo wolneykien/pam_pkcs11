@@ -232,7 +232,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   textdomain(PACKAGE);
 #endif
 
-  pam_prompt(pamh, PAM_TEXT_INFO , NULL, _(configuration.prompts.start_auth));
+  pam_prompt(pamh, PAM_TEXT_INFO , NULL, _(configuration->prompts.start_auth));
 
   /* first of all check whether debugging should be enabled */
   for (i = 0; i < argc; i++)
@@ -321,7 +321,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	rv = pam_get_item(pamh, PAM_USER, &user);
 	if (rv != PAM_SUCCESS || user == NULL || user[0] == '\0') {
 	  pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _(configuration.prompts.wait_insert),
+		  _(configuration->prompts.wait_insert),
 		  _(configuration->token_type));
 	  /* get user name */
 	  rv = pam_get_user(pamh, &user, NULL);
@@ -384,7 +384,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR("no suitable token available");
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "no suitable token available");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_token));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_token));
 		sleep(configuration->err_display_time);
 	}
 
@@ -398,11 +398,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (login_token_name || configuration->wait_for_card) {
       if (login_token_name) {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_(configuration.prompts.insert_named),
+			_(configuration->prompts.insert_named),
 			login_token_name);
       } else {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 _(configuration.prompts.insert));
+                 _(configuration->prompts.insert));
       }
 
       if (configuration->slot_description != NULL) {
@@ -419,7 +419,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
     } else if (user) {
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_card));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
@@ -430,7 +430,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       /* we haven't prompted for the user yet, get the user and see if
        * the smart card has been inserted in the mean time */
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-	    _(configuration.prompts.insert_or_enter),
+	    _(configuration->prompts.insert_or_enter),
 		_(configuration->token_type));
       rv = pam_get_user(pamh, &user, NULL);
 
@@ -446,7 +446,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (rv != 0) {
         /* user gave us a user id and no smart card go to next module */
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_card));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
@@ -456,7 +456,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     }
   } else {
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _(configuration.prompts.found), _(configuration->token_type));
+		  _(configuration->prompts.found), _(configuration->token_type));
   }
   rv = open_pkcs11_session(ph, slot_num);
   if (rv != 0) {
@@ -475,7 +475,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR1("get_slot_login_required() failed: %s", get_error());
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.login_failed));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.login_failed));
 		sleep(configuration->err_display_time);
 	}
     release_pkcs11_module(ph);
@@ -483,7 +483,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   } else if (rv) {
     /* get password */
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-        _(configuration.prompts.welcome), get_slot_tokenlabel(ph));
+        _(configuration->prompts.welcome), get_slot_tokenlabel(ph));
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
@@ -492,7 +492,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		char password_prompt[128];
 
 		snprintf(password_prompt,  sizeof(password_prompt),
-				 _(configuration.prompts.pin_prompt),
+				 _(configuration->prompts.pin_prompt),
 				 _(configuration->token_type));
 		if (configuration->use_first_pass) {
 			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
@@ -504,7 +504,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		}
 		if (rv != PAM_SUCCESS) {
 			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.pin_read_err));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.pin_read_err));
 				sleep(configuration->err_display_time);
 			}
 			release_pkcs11_module(ph);
@@ -524,7 +524,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			pam_syslog(pamh, LOG_ERR,
 					"password length is zero but the 'nullok' argument was not defined.");
 			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.empty_pin_err));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.empty_pin_err));
 				sleep(configuration->err_display_time);
 			}
 			return PAM_AUTH_ERR;
@@ -533,7 +533,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	else
 	{
 		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-				   _(configuration.prompts.enter_pin),
+				   _(configuration->prompts.enter_pin),
 				   _(configuration->token_type));
 		/* use pin pad */
 		password = NULL;
@@ -553,7 +553,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.wrong_pin));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.wrong_pin));
 			sleep(configuration->err_display_time);
 		}
       goto auth_failed_nopw;
@@ -565,7 +565,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR1("get_certificate_list() failed: %s", get_error());
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "get_certificate_list() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_cert));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_cert));
 		sleep(configuration->err_display_time);
 	}
     goto auth_failed_nopw;
@@ -580,7 +580,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (!x509 ) continue; /* sanity check */
     DBG1("verifying the certificate #%d", i + 1);
 	if (!configuration->quiet) {
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _(configuration.prompts.cert_verif));
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _(configuration->prompts.cert_verif));
 	}
 
       /* verify certificate (date, signature, CRL, ...) */
@@ -593,19 +593,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			switch (rv) {
 				case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_(configuration.prompts.cert_expired));
+						_(configuration->prompts.cert_expired));
 					break;
 				case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_(configuration.prompts.cert_not_yet));
+						_(configuration->prompts.cert_not_yet));
 					break;
 				case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_(configuration.prompts.cert_inv_sig));
+						_(configuration->prompts.cert_inv_sig));
 					break;
 				default:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_(configuration.prompts.cert_inv));
+						_(configuration->prompts.cert_inv));
 					break;
 			}
 			sleep(configuration->err_display_time);
@@ -656,7 +656,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           ERR1("match_user() failed: %s", get_error());
 			if (!configuration->quiet) {
 				pam_syslog(pamh, LOG_ERR, "match_user() failed: %s", get_error());
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_user));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_user));
 				sleep(configuration->err_display_time);
 			}
 	  goto auth_failed_nopw;
@@ -687,7 +687,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {
 		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                   _(configuration.prompts.checking_sig));
+                   _(configuration->prompts.checking_sig));
 
 
 #ifdef notdef
@@ -722,7 +722,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "sign_value() failed: %s", get_error());
 			pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _(configuration.prompts.sig_failed));
+                       _(configuration->prompts.sig_failed));
 			sleep(configuration->err_display_time);
 		}
       goto auth_failed_nopw;
@@ -741,8 +741,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("verify_signature() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _(configuration.prompts.sig_verif_failed));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.sig_verif_failed));
 			sleep(configuration->err_display_time);
 		}
       return PAM_AUTH_ERR;
