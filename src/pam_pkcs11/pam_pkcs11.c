@@ -483,7 +483,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   } else if (rv) {
     /* get password */
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+        _(configuration.prompts.welcome), get_slot_tokenlabel(ph));
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
@@ -491,7 +491,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	{
 		char password_prompt[128];
 
-		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
+		snprintf(password_prompt,  sizeof(password_prompt),
+				 _(configuration.prompts.pin_prompts),
+				 _(configuration->token_type));
 		if (configuration->use_first_pass) {
 			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
 		} else if (configuration->try_first_pass) {
@@ -502,7 +504,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		}
 		if (rv != PAM_SUCCESS) {
 			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.pin_read_err));
 				sleep(configuration->err_display_time);
 			}
 			release_pkcs11_module(ph);
@@ -522,7 +524,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			pam_syslog(pamh, LOG_ERR,
 					"password length is zero but the 'nullok' argument was not defined.");
 			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.empty_pin_err));
 				sleep(configuration->err_display_time);
 			}
 			return PAM_AUTH_ERR;
@@ -531,7 +533,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	else
 	{
 		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
+				   _(configuration.prompts.enter_pin),
+				   _(configuration->token_type));
 		/* use pin pad */
 		password = NULL;
 	}
@@ -550,7 +553,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.wrong_pin));
 			sleep(configuration->err_display_time);
 		}
       goto auth_failed_nopw;
@@ -562,7 +565,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     ERR1("get_certificate_list() failed: %s", get_error());
     if (!configuration->quiet) {
 		pam_syslog(pamh, LOG_ERR, "get_certificate_list() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2322: No certificate found"));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_cert));
 		sleep(configuration->err_display_time);
 	}
     goto auth_failed_nopw;
@@ -577,7 +580,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (!x509 ) continue; /* sanity check */
     DBG1("verifying the certificate #%d", i + 1);
 	if (!configuration->quiet) {
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("verifying certificate"));
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _(configuration.prompts.cert_verif));
 	}
 
       /* verify certificate (date, signature, CRL, ...) */
@@ -590,19 +593,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			switch (rv) {
 				case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2324: Certificate has expired"));
+						_(configuration.prompts.cert_expired));
 					break;
 				case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2326: Certificate not yet valid"));
+						_(configuration.prompts.cert_not_yet));
 					break;
 				case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2328: Certificate signature invalid"));
+						_(configuration.prompts.cert_inv_sig));
 					break;
 				default:
 					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2330: Certificate invalid"));
+						_(configuration.prompts.cert_inv));
 					break;
 			}
 			sleep(configuration->err_display_time);
@@ -653,7 +656,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           ERR1("match_user() failed: %s", get_error());
 			if (!configuration->quiet) {
 				pam_syslog(pamh, LOG_ERR, "match_user() failed: %s", get_error());
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2334: No matching user"));
+				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.prompts.no_user));
 				sleep(configuration->err_display_time);
 			}
 	  goto auth_failed_nopw;
@@ -674,7 +677,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR,
 				"no valid certificate which meets all requirements found");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2336: No matching certificate found"));
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration.promps.no_cert_match));
 		sleep(configuration->err_display_time);
 	}
     goto auth_failed_nopw;
@@ -683,7 +686,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("Checking signature"));
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                   _(configuration.prompts.checking_sig));
 
 
 #ifdef notdef
@@ -717,7 +721,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("sign_value() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "sign_value() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2340: Signing failed"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _(configuration.prompts.sig_failed));
 			sleep(configuration->err_display_time);
 		}
       goto auth_failed_nopw;
@@ -736,7 +741,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("verify_signature() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2342: Verifying signature failed"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _(configuration.prompts.sig_verif_failed));
 			sleep(configuration->err_display_time);
 		}
       return PAM_AUTH_ERR;

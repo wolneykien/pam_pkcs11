@@ -34,6 +34,23 @@ struct prompts_st {
     const char *no_card;
     const char *found;
     const char *login_failed;
+    const char *welcome;
+    const char *wrong_pin;
+    const char *no_cert;
+    const char *cert_verif;
+    const char *cert_expired;
+    const char *cert_not_yet;
+    const char *cert_inv_sig;
+    const char *cert_inv;
+    const char *no_user_match;
+    const char *no_cert_match;
+    const char *pin_prompt;
+    const char *pin_read_err;
+    const char *empty_pin_err;
+    const char *enter_pin;
+    const char *checking_sig;
+    const char *sig_failed;
+    const char *sig_verif_failed;
 }
 
 struct configuration_st {

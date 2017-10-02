@@ -63,6 +63,31 @@ static void display_config (void) {
 
         DBG("--- Prompts ---");
         DBG1("start_auth: %s", configuration.prompts.start_auth);
+        DBG1("insert_or_enter: %s", configuration.prompts.insert_or_enter);
+        DBG1("no_token: %s", configuration.prompts.no_token);
+        DBG1("insert_named: %s", configuration.prompts.insert_named);
+        DBG1("insert: %s", configuration.prompts.insert);
+        DBG1("no_card: %s", configuration.prompts.no_card);
+        DBG1("found: %s", configuration.prompts.found);
+        DBG1("login_failed: %s", configuration.prompts.login_failed);
+        DBG1("welcome: %s", configuration.prompts.welcome);
+        DBG1("wrong_pin: %s", configuration.prompts.wrong_pin);
+        DBG1("no_cert: %s", configuration.prompts.no_cert);
+        DBG1("cert_verif: %s", configuration.prompts.cert_verif);
+        DBG1("cert_expired: %s", configuration.prompts.cert_expired);
+        DBG1("cert_not_yet: %s", configuration.prompts.cert_not_yet);
+        DBG1("cert_inv_sig: %s", configuration.prompts.cert_inv_sig);
+        DBG1("cert_inv: %s", configuration.prompts.cert_inv);
+        DBG1("no_user_match: %s", configuration.prompts.no_user_match);
+        DBG1("no_cert_match: %s", configuration.prompts.no_cert_match);
+        DBG1("pin_prompt: %s", configuration.prompts.pin_prompt);
+        DBG1("pin_read_err: %s", configuration.prompts.pin_read_err);
+        DBG1("empty_pin_err: %s", configuration.prompts.empty_pin_err);
+        DBG1("enter_pin: %s", configuration.prompts.enter_pin);
+        DBG1("checking_sig: %s", configuration.prompts.checking_sig);
+        DBG1("sig_failed: %s", configuration.prompts.sig_failed);
+        DBG1("sig_verif_failed: %s", configuration.prompts.sig_verif_failed);
+        //DBG1(": %s", configuration.prompts.);
 }
 #endif
 
@@ -78,6 +103,24 @@ static void init_prompts() {
     configuration.prompts.no_card = "Error 2308: No smartcard found";
     configuration.prompts.found = "%s found.";
     configuration.prompts.login_failed = "Error 2314: Slot login failed";
+    configuration.prompts.welcome = "Welcome %.32s!";
+    configuration.prompts.wrong_pin = "Error 2320: Wrong smartcard PIN";
+    configuration.prompts.no_cert = "Error 2322: No certificate found";
+    configuration.prompts.cert_verif = "verifying certificate";
+    configuration.prompts.cert_expired = "Error 2324: Certificate has expired";
+    configuration.prompts.cert_not_yet = "Error 2326: Certificate not yet valid";
+    configuration.prompts.cert_inv_sig = "Error 2328: Certificate signature invalid";
+    configuration.prompts.cert_inv = "Error 2330: Certificate invalid";
+    configuration.prompts.no_user_match = "Error 2334: No matching user";
+    configuration.prompts.no_cert_match = "Error 2336: No matching certificate found";
+    configuration.prompts.pin_prompt = "%s PIN: ";
+    configuration.prompts.pin_read_err = "Error 2316: password could not be read";
+    configuration.prompts.empty_pin_err = "Error 2318: Empty smartcard PIN not allowed.";
+    configuration.prompts.enter_pin = "Enter your %s PIN on the pinpad";
+    configuration.prompts.checking_sig = "Checking signature";
+    configuration.prompts.sig_failed = "Error 2340: Signing failed";
+    configuration.prompts.sig_verif_failed = "Error 2342: Verifying signature failed";
+    //configuration.prompts. = ;
 }
 
 /*
