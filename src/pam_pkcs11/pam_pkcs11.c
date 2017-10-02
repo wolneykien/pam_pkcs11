@@ -492,7 +492,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		char password_prompt[128];
 
 		snprintf(password_prompt,  sizeof(password_prompt),
-				 _(configuration.prompts.pin_prompts),
+				 _(configuration.prompts.pin_prompt),
 				 _(configuration->token_type));
 		if (configuration->use_first_pass) {
 			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
