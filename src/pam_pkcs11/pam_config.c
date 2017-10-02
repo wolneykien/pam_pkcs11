@@ -235,11 +235,7 @@ static void parse_prompts(const scconf_block *root) {
     configuration.prompts.enter_pin =                  \
         scconf_get_str(root, "prompt_enter_pin",
                        configuration.prompts.enter_pin);
-
-    configuration.prompts. =                  \
-        scconf_get_str(root, "prompt_",
-                       configuration.prompts.);
-
+    
     configuration.prompts.checking_sig =                  \
         scconf_get_str(root, "prompt_checking_sig",
                        configuration.prompts.checking_sig);
