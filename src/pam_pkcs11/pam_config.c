@@ -145,6 +145,119 @@ static void init_configuration() {
 }
 
 /*
+Parses the configurable prompts
+*/
+static void parse_prompts(const scconf_block *root) {
+    configuration.prompts.start_auth =              \
+        scconf_get_str(root, "prompt_start_auth",
+                       configuration.prompts.start_auth);
+
+    configuration.prompts.insert_or_enter =             \
+        scconf_get_str(root, "prompt_insert_or_enter",
+                       configuration.prompts.insert_or_enter);
+
+    configuration.prompts.no_token = \
+        scconf_get_str(root, "prompt_no_token",
+                       configuration.prompts.no_token);
+
+    configuration.prompts.insert_named = \
+        scconf_get_str(root, "prompt_insert_named",
+                       configuration.prompts.insert_named);
+
+    configuration.prompts.insert = \
+        scconf_get_str(root, "prompt_insert",
+                       configuration.prompts.insert);
+
+    configuration.prompts.no_card = \
+        scconf_get_str(root, "prompt_no_card",
+                       configuration.prompts.no_card);
+
+    configuration.prompts.found = \
+        scconf_get_str(root, "prompt_found",
+                       configuration.prompts.found);
+
+    configuration.prompts.login_failed = \
+        scconf_get_str(root, "prompt_login_failed",
+                       configuration.prompts.login_failed);
+
+    configuration.prompts.welcome =                  \
+        scconf_get_str(root, "prompt_welcome",
+                       configuration.prompts.welcome);
+
+    configuration.prompts.wrong_pin =                  \
+        scconf_get_str(root, "prompt_wrong_pin",
+                       configuration.prompts.wrong_pin);
+
+    configuration.prompts.no_cert =                  \
+        scconf_get_str(root, "prompt_no_cert",
+                       configuration.prompts.no_cert);
+
+    configuration.prompts.cert_verif =                  \
+        scconf_get_str(root, "prompt_cert_verif",
+                       configuration.prompts.cert_verif);
+
+    configuration.prompts.cert_expired =                  \
+        scconf_get_str(root, "prompt_cert_expired",
+                       configuration.prompts.cert_expired);
+
+    configuration.prompts.cert_not_yet =                  \
+        scconf_get_str(root, "prompt_cert_not_yet",
+                       configuration.prompts.cert_not_yet);
+
+    configuration.prompts.cert_inv_sig =                  \
+        scconf_get_str(root, "prompt_cert_inv_sig",
+                       configuration.prompts.cert_inv_sig);
+
+    configuration.prompts.cert_inv =                  \
+        scconf_get_str(root, "prompt_cert_inv",
+                       configuration.prompts.cert_inv);
+
+    configuration.prompts.no_user_match =                  \
+        scconf_get_str(root, "prompt_no_user_match",
+                       configuration.prompts.no_user_match);
+
+    configuration.prompts.no_cert_match =                  \
+        scconf_get_str(root, "prompt_no_cert_match",
+                       configuration.prompts.no_cert_match);
+
+    configuration.prompts.pin_prompt =                  \
+        scconf_get_str(root, "prompt_pin_prompt",
+                       configuration.prompts.pin_prompt);
+
+    configuration.prompts.pin_read_err =                  \
+        scconf_get_str(root, "prompt_pin_read_err",
+                       configuration.prompts.pin_read_err);
+
+    configuration.prompts.empty_pin_err =                  \
+        scconf_get_str(root, "prompt_empty_pin_err",
+                       configuration.prompts.empty_pin_err);
+
+    configuration.prompts.enter_pin =                  \
+        scconf_get_str(root, "prompt_enter_pin",
+                       configuration.prompts.enter_pin);
+
+    configuration.prompts. =                  \
+        scconf_get_str(root, "prompt_",
+                       configuration.prompts.);
+
+    configuration.prompts.checking_sig =                  \
+        scconf_get_str(root, "prompt_checking_sig",
+                       configuration.prompts.checking_sig);
+
+    configuration.prompts.sig_failed =                  \
+        scconf_get_str(root, "prompt_sig_failed",
+                       configuration.prompts.sig_failed);
+
+    configuration.prompts.sig_verif_failed =                  \
+        scconf_get_str(root, "prompt_sig_verif_failed",
+                       configuration.prompts.sig_verif_failed);
+
+    // configuration.prompts. =                  \
+    //     scconf_get_str(root, "prompt_",
+    //                    configuration.prompts.);
+}
+
+/*
 parse configuration file
 */
 static void parse_config_file(void) {
@@ -278,38 +391,8 @@ static void parse_config_file(void) {
 	}
 	/* load_mappers(ctx); */
 
-    /* Load prompt strings */
-    configuration.prompts.start_auth = \
-        scconf_get_str(root, "prompt_start_auth",
-                       configuration.prompts.start_auth);
-
-    configuration.prompts.insert_or_enter = \
-        scconf_get_str(root, "prompt_insert_or_enter",
-                       configuration.prompts.insert_or_enter);
-
-    configuration.prompts.no_token = \
-        scconf_get_str(root, "prompt_no_token",
-                       configuration.prompts.no_token);
-
-    configuration.prompts.insert_named = \
-        scconf_get_str(root, "prompt_insert_named",
-                       configuration.prompts.insert_named);
-
-    configuration.prompts.insert = \
-        scconf_get_str(root, "prompt_insert",
-                       configuration.prompts.insert);
-
-    configuration.prompts.no_card = \
-        scconf_get_str(root, "prompt_no_card",
-                       configuration.prompts.no_card);
-
-    configuration.prompts.found = \
-        scconf_get_str(root, "prompt_found",
-                       configuration.prompts.found);
-
-    configuration.prompts.login_failed = \
-        scconf_get_str(root, "prompt_login_failed",
-                       configuration.prompts.login_failed);
+    /* Load promt strings */
+    parse_prompts(root);
 
 	/* that's all folks: return */
 	return;
