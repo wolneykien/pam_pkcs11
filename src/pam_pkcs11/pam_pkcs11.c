@@ -232,6 +232,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   textdomain(PACKAGE);
 #endif
 
+  /* call configure routines */
+  configuration = pk_configure(argc,argv);
+  if (!configuration ) {
+	ERR("Error setting configuration parameters");
+	return PAM_AUTHINFO_UNAVAIL;
+  }
+
   pam_prompt(pamh, PAM_TEXT_INFO , NULL, _(configuration->prompts.start_auth));
 
   /* first of all check whether debugging should be enabled */
@@ -239,13 +246,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (strcmp("debug", argv[i]) == 0) {
       set_debug_level(1);
     }
-
-  /* call configure routines */
-  configuration = pk_configure(argc,argv);
-  if (!configuration ) {
-	ERR("Error setting configuration parameters");
-	return PAM_AUTHINFO_UNAVAIL;
-  }
 
   /* Either slot_description or slot_num, but not both, needs to be used */
   if ((configuration->slot_description != NULL && configuration->slot_num != -1) || (configuration->slot_description == NULL && configuration->slot_num == -1)) {
