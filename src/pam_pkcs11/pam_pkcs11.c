@@ -307,15 +307,6 @@ static int pkcs11_find_slot( pam_handle_t *pamh,
                                            login_token_name, slot_num);
     }
 
-    if (rv != 0) {
-        ERR("no suitable token available");
-        if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR, "no suitable token available");
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2306: No suitable token available"));
-            sleep(configuration->err_display_time);
-        }
-    }
-
     return rv;
 }
 
@@ -538,7 +529,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
     } else if (user) {
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2308: No smartcard found"));
+			pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("Error 2308: No smartcard found"));
 			sleep(configuration->err_display_time);
 		}
 
@@ -565,7 +556,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (rv != 0) {
         /* user gave us a user id and no smart card go to next module */
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2310: No smartcard found"));
+			pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("Error 2310: No smartcard found"));
 			sleep(configuration->err_display_time);
 		}
 
@@ -994,6 +985,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 
       rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
       if ( rv != 0 ) {
+          if (!configuration->quiet) {
+              pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("Error 2310: No smartcard found"));
+              sleep(configuration->err_display_time);
+          }
           release_pkcs11_module(ph);
           if ( configuration->card_only ) {
               return PAM_AUTHINFO_UNAVAIL;
