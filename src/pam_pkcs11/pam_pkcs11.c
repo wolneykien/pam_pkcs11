@@ -419,7 +419,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
     } else if (user) {
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_card));
+			pam_prompt(pamh, PAM_ERROR_MSG, NULL, _(configuration->prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
@@ -446,7 +446,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (rv != 0) {
         /* user gave us a user id and no smart card go to next module */
 		if (!configuration->quiet) {
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_card));
+			pam_prompt(pamh, PAM_ERROR_MSG, NULL, _(configuration->prompts.no_card));
 			sleep(configuration->err_display_time);
 		}
 
