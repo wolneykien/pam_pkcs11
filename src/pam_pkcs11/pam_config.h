@@ -73,6 +73,7 @@ struct configuration_st {
 	const char *token_type;
 	const char *username; /* provided user name */
 	int quiet;
+    int verbose;
 	int err_display_time;
     struct prompts_st prompts;
 };

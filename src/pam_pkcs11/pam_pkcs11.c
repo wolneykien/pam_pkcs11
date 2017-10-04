@@ -239,7 +239,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	return PAM_AUTHINFO_UNAVAIL;
   }
 
-  pam_prompt(pamh, PAM_TEXT_INFO , NULL, _(configuration->prompts.start_auth));
+  if (configuration->verbose) {
+      pam_prompt(pamh, PAM_TEXT_INFO , NULL,
+                 _(configuration->prompts.start_auth));
+  }
 
   /* first of all check whether debugging should be enabled */
   for (i = 0; i < argc; i++)
@@ -455,8 +458,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
     }
   } else {
-      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		  _(configuration->prompts.found), _(configuration->token_type));
+      if (configuration->verbose) {
+          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                     _(configuration->prompts.found),
+                     _(configuration->token_type));
+      }
   }
   rv = open_pkcs11_session(ph, slot_num);
   if (rv != 0) {
@@ -579,8 +585,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     X509 *x509 = (X509 *)get_X509_certificate(cert_list[i]);
     if (!x509 ) continue; /* sanity check */
     DBG1("verifying the certificate #%d", i + 1);
-	if (!configuration->quiet) {
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _(configuration->prompts.cert_verif));
+	if (configuration->verbose) {
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                   _(configuration->prompts.cert_verif),
+                   i + 1);
 	}
 
       /* verify certificate (date, signature, CRL, ...) */
@@ -686,8 +694,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                   _(configuration->prompts.checking_sig));
+      if (configuration->verbose) {
+          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                     _(configuration->prompts.checking_sig));
+      }
 
 
 #ifdef notdef

@@ -285,9 +285,12 @@ static void parse_config_file(void) {
 		scconf_get_int(root,"err_display_time",configuration.err_display_time);
 	configuration.nullok =
 	    scconf_get_bool(root,"nullok",configuration.nullok);
+	configuration.verbose = scconf_get_bool(root, "verbose", configuration.verbose);
 	configuration.quiet = scconf_get_bool(root,"quiet",configuration.quiet);
-	if (configuration.quiet)
+	if (configuration.quiet) {
 	    set_debug_level(-2);
+        configuration.verbose = 0;
+    }
 	configuration.debug =
 	    scconf_get_bool(root,"debug",configuration.debug);
 	if (configuration.debug)
@@ -453,10 +456,15 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
 		    set_debug_level(0);
 		continue;
 	   }
-	   if (strcmp("quiet", argv[i]) == 0) {
-		configuration.quiet = 1;
-		set_debug_level(-2);
+	   if (strcmp("verbose", argv[i]) == 0) {
+		configuration.verbose = 1;
 		continue;
+	   }
+	   if (strcmp("quiet", argv[i]) == 0) {
+           configuration.quiet = 1;
+           configuration.verbose = 0;
+           set_debug_level(-2);
+           continue;
 	   }
 	   if (strstr(argv[i],"pkcs11_module=") ) {
 		configuration.pkcs11_module = argv[i] + sizeof("pkcs11_module=")-1;
