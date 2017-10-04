@@ -166,7 +166,7 @@ static int scconf_lex_engine(scconf_parser * parser, BUFHAN * bp)
 			buf_zero(bp);
 			continue;
 		case '"':
-			buf_eat_till(bp, (char) this_char, "\"\r\n");
+			buf_eat_till(bp, (char) this_char, "\"");
 			buf_addch(bp, (char) buf_nextch(bp));
 			scconf_parse_token(parser, TOKEN_TYPE_STRING, bp->buf);
 			buf_zero(bp);
