@@ -47,7 +47,7 @@ struct prompts_st {
     const char *pin_prompt;
     const char *pin_read_err;
     const char *empty_pin_err;
-    const char *enter_pin;
+    const char *enter_pin_pinpad;
     const char *checking_sig;
     const char *sig_failed;
     const char *sig_verif_failed;

@@ -83,7 +83,7 @@ static void display_config (void) {
         DBG1("pin_prompt: %s", configuration.prompts.pin_prompt);
         DBG1("pin_read_err: %s", configuration.prompts.pin_read_err);
         DBG1("empty_pin_err: %s", configuration.prompts.empty_pin_err);
-        DBG1("enter_pin: %s", configuration.prompts.enter_pin);
+        DBG1("enter_pin_pinpad: %s", configuration.prompts.enter_pin_pinpad);
         DBG1("checking_sig: %s", configuration.prompts.checking_sig);
         DBG1("sig_failed: %s", configuration.prompts.sig_failed);
         DBG1("sig_verif_failed: %s", configuration.prompts.sig_verif_failed);
@@ -116,7 +116,7 @@ static void init_prompts() {
     configuration.prompts.pin_prompt = "%s PIN: ";
     configuration.prompts.pin_read_err = "Error 2316: password could not be read";
     configuration.prompts.empty_pin_err = "Error 2318: Empty smartcard PIN not allowed.";
-    configuration.prompts.enter_pin = "Enter your %s PIN on the pinpad";
+    configuration.prompts.enter_pin_pinpad = "Enter your %s PIN on the pinpad";
     configuration.prompts.checking_sig = "Checking signature";
     configuration.prompts.sig_failed = "Error 2340: Signing failed";
     configuration.prompts.sig_verif_failed = "Error 2342: Verifying signature failed";
@@ -232,9 +232,9 @@ static void parse_prompts(const scconf_block *root) {
         scconf_get_str(root, "prompt_empty_pin_err",
                        configuration.prompts.empty_pin_err);
 
-    configuration.prompts.enter_pin =                  \
-        scconf_get_str(root, "prompt_enter_pin",
-                       configuration.prompts.enter_pin);
+    configuration.prompts.enter_pin_pinpad =                  \
+        scconf_get_str(root, "prompt_enter_pin_pinpad",
+                       configuration.prompts.enter_pin_pinpad);
     
     configuration.prompts.checking_sig =                  \
         scconf_get_str(root, "prompt_checking_sig",
