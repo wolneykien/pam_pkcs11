@@ -524,6 +524,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   load_mappers(configuration->ctx);
 
   /* find a valid and matching certificates */
+  int cert_rv = 0;
   for (i = 0; i < ncert; i++) {
     X509 *x509 = (X509 *)get_X509_certificate(cert_list[i]);
     if (!x509 ) continue; /* sanity check */
@@ -532,38 +533,20 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("verifying certificate"));
 	}
 
-      /* verify certificate (date, signature, CRL, ...) */
-      rv = verify_certificate(x509,&configuration->policy);
-      if (rv < 0) {
+    /* verify certificate (date, signature, CRL, ...) */
+    rv = 0;
+    cert_rv = verify_certificate(x509,&configuration->policy);
+    if (cert_rv < 0) {
         ERR1("verify_certificate() failed: %s", get_error());
         if (!configuration->quiet) {
-          pam_syslog(pamh, LOG_ERR,
-                   "verify_certificate() failed: %s", get_error());
-			switch (rv) {
-				case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2324: Certificate has expired"));
-					break;
-				case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2326: Certificate not yet valid"));
-					break;
-				case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2328: Certificate signature invalid"));
-					break;
-				default:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2330: Certificate invalid"));
-					break;
-			}
-			sleep(configuration->err_display_time);
+            pam_syslog(pamh, LOG_ERR,
+                       "verify_certificate() failed: %s", get_error());
 		}
         continue; /* try next certificate */
-      } else if (rv != 1) {
+    } else if (cert_rv != 1) {
         ERR1("verify_certificate() failed: %s", get_error());
         continue; /* try next certificate */
-      }
+    }
 
     /* CA and CRL verified, now check/find user */
 
@@ -622,14 +605,36 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* now myCert points to our found certificate or null if no user found */
   if (!chosen_cert) {
-    ERR("no valid certificate which meets all requirements found");
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR,
-				"no valid certificate which meets all requirements found");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2336: No matching certificate found"));
-		sleep(configuration->err_display_time);
-	}
-    goto auth_failed_nopw;
+      ERR("no valid certificate which meets all requirements found");
+      if (!configuration->quiet) {
+          if (cert_rv < 0) {
+              switch (cert_rv) {
+              case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2324: Certificate has expired"));
+                  break;
+              case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2326: Certificate not yet valid"));
+                  break;
+              case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2328: Certificate signature invalid"));
+                  break;
+              default:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2330: Certificate invalid"));
+                  break;
+              }
+              sleep(configuration->err_display_time);
+          } else {
+              pam_syslog(pamh, LOG_ERR,
+                         "no valid certificate which meets all requirements found");
+			  pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2336: No matching certificate found"));
+              sleep(configuration->err_display_time);
+          }
+      }
+      goto auth_failed_nopw;
   }
 
 
