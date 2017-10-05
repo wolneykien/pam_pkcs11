@@ -88,6 +88,8 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
   va_list va;
   char text[128];
 
+  if (!fmt) return PAM_SUCCESS;
+
   va_start(va, fmt);
   vsnprintf(text, sizeof text, fmt, va);
   va_end(va);
@@ -136,6 +138,8 @@ static int pam_pkcs11_prompt(const pam_handle_t *pamh, int style, char **resp, c
   char *response = NULL;
   va_list va;
   int ret = 0;
+
+  if (!fmt) return PAM_SUCCESS;
 
   va_start(va, fmt);
   ret = pam_vprompt(pamh, style, &response, fmt, va);
