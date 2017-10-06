@@ -367,6 +367,15 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     return rv;
 }
 
+static void report_pkcs11_lib_error(const char func,
+                                    struct configuration_st *configuration)
+{
+    ERR1("%s() failed: %s", func, get_error());
+    if (!configuration->quiet) {
+        pam_syslog(pamh, LOG_ERR, "%s() failed: %s", func, get_error());
+    }
+}
+
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   int i, rv;
@@ -582,6 +591,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
+  rv = get_slot_user_pin_locked(ph);
+  if (rv) {
+      if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_locked", configuration);
+      pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("User PIN is locked!"));
+      sleep(configuration->err_display_time);
+      release_pkcs11_module(ph);
+      return pkcs11_pam_fail;
+  }
+
   rv = get_slot_login_required(ph);
   if (rv == -1) {
     ERR1("get_slot_login_required() failed: %s", get_error());
@@ -596,6 +614,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* get password */
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
 		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+
+    rv = get_slot_user_pin_final_try(ph);
+    if (rv) {
+        if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_final_try", configuration);
+        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: User PIN FINAL TRY!!!"));
+        sleep(configuration->err_display_time);
+    } else {
+        rv = get_slot_user_pin_count_low(ph);
+        if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_count_low", configuration);
+        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: Incorrect login attempts were there!"));
+        sleep(configuration->err_display_time);
+    }
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);

@@ -1476,7 +1476,7 @@ int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass)
     }
 }
 
-int get_slot_login_required(pkcs11_handle_t *h)
+int test_slot_flag(pkcs11_handle_t *h, CK_FLAGS mask)
 {
   int rv;
   CK_TOKEN_INFO tinfo;
@@ -1486,21 +1486,22 @@ int get_slot_login_required(pkcs11_handle_t *h)
     set_error("C_GetTokenInfo() failed: 0x%08lX", rv);
     return -1;
   }
-  return tinfo.flags & CKF_LOGIN_REQUIRED;
+
+  return tinfo.flags & mask;
 }
 
-int get_slot_protected_authentication_path(pkcs11_handle_t *h)
-{
-  int rv;
-  CK_TOKEN_INFO tinfo;
-
-  rv = h->fl->C_GetTokenInfo(h->slots[h->current_slot].id, &tinfo);
-  if (rv != CKR_OK) {
-    set_error("C_GetTokenInfo() failed: 0x%08lX", rv);
-    return -1;
-  }
-  return tinfo.flags & CKF_PROTECTED_AUTHENTICATION_PATH;
+# define DEFINE_GET_SLOT(name, mask)            \
+int get_slot_ ## name (pkcs11_handle_t *h)      \
+{                                               \
+    return test_slot_flag(h, mask);             \
 }
+
+DEFINE_GET_SLOT(login_required, CKF_LOGIN_REQUIRED)
+DEFINE_GET_SLOT(protected_authentication_path, CKF_PROTECTED_AUTHENTICATION_PATH)
+DEFINE_GET_SLOT(user_pin_count_low, CFK_USER_PIN_COUNT_LOW)
+DEFINE_GET_SLOT(user_pin_final_try, CKF_USER_PIN_FINAL_TRY)
+DEFINE_GET_SLOT(user_pin_locked, CFK_USER_PIN_LOCKED)
+DEFINE_GET_SLOT(user_pin_to_be_changed, CKF_USER_PIN_TO_BE_CHANGED)
 
 static void free_certs(cert_object_t **certs, int cert_count)
 {
