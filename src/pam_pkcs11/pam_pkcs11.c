@@ -291,20 +291,35 @@ static int pkcs11_find_slot( pam_handle_t *pamh,
                              struct configuration_st *configuration,
                              const char *login_token_name,
                              pkcs11_handle_t *ph,
-                             unsigned int *slot_num )
+                             unsigned int *slot_num,
+                             int wait)
 {
     int rv = -1;
     
     if (configuration->slot_description != NULL) {
-        rv = find_slot_by_slotlabel_and_tokenlabel(
-                 ph,
-                 configuration->slot_description,
-                 login_token_name,
-                 slot_num
-        );
+        if (!wait) {
+            rv = find_slot_by_slotlabel_and_tokenlabel(
+                     ph,
+                     configuration->slot_description,
+                     login_token_name,
+                     slot_num
+            );
+        } else {
+            rv = wait_for_token_by_slotlabel(
+                     ph,
+                     configuration->slot_description,
+                     login_token_name,
+                     &slot_num
+            );
+        }
     } else if (configuration->slot_num != -1) {
-        rv = find_slot_by_number_and_label(ph, configuration->slot_num,
-                                           login_token_name, slot_num);
+        if (!wait) {
+            rv = find_slot_by_number_and_label(ph, configuration->slot_num,
+                                               login_token_name, slot_num);
+        } else {
+          rv = wait_for_token(ph, configuration->slot_num,
+                              login_token_name, &slot_num);
+        }
     }
 
     return rv;
@@ -495,7 +510,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       return rv;
   }
 
-  rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
+  rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                         &slot_num, 0 );
 
   if (rv != 0) {
     if (!configuration->card_only) {
@@ -515,13 +531,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                  _("Please insert your smart card."));
       }
 
-      if (configuration->slot_description != NULL) {
-	rv = wait_for_token_by_slotlabel(ph, configuration->slot_description,
-          login_token_name, &slot_num);
-      } else if (configuration->slot_num != -1) {
-        rv = wait_for_token(ph, configuration->slot_num,
-                          login_token_name, &slot_num);
-      }
+      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                             &slot_num, 1 );
 
       if (rv != 0) {
         release_pkcs11_module(ph);
@@ -546,12 +557,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
       /* check one last time for the smart card before bouncing to the next
        * module */
-      if (configuration->slot_description != NULL) {
-	rv = find_slot_by_slotlabel(ph, configuration->slot_description,
-	  &slot_num);
-      } else if (configuration->slot_num != -1) {
-        rv = find_slot_by_number(ph, configuration->slot_num, &slot_num);
-      }
+      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                             &slot_num, 0 );
 
       if (rv != 0) {
         /* user gave us a user id and no smart card go to next module */
@@ -983,7 +990,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return rv;
       }
 
-      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph, &slot_num );
+      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                             &slot_num, 0 );
       if ( rv != 0 ) {
           if (!configuration->quiet) {
               pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("Error 2310: No smartcard found"));
