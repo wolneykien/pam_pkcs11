@@ -250,12 +250,7 @@ void inspect_certificate(X509 *x509) {
 	}
 }
 
-/*
-* this function search mapper module list until
-* find a module that returns a login name for
-* provided certificate
-*/
-char * find_user(X509 *x509) {
+static char * _find_user(X509 *x509, mapper_module **mm) {
 	int old_level= get_debug_level();
 	struct mapper_listitem *item = root_mapper_list;
 	if (!x509) return NULL;
@@ -268,17 +263,76 @@ char * find_user(X509 *x509) {
 
 			set_debug_level(item->module->module_data->dbg_level);
 	        login = (*item->module->module_data->finder)(x509,item->module->module_data->context, &match);
-		set_debug_level(old_level);
+            set_debug_level(old_level);
 	    	DBG3("Mapper '%s' found %s, matched %d", item->module->module_name,login, match);
 			if (login) {
-				if (match)
+				if (match) {
+                    if (mm != NULL) *mm = item->module->module_data;
 					return login;
+                }
 				free(login);
 			}
 	    }
 	    item=item->next;
 	}
 	return NULL;
+}
+
+/*
+* this function search mapper module list until
+* find a module that returns a login name for
+* provided certificate
+*/
+char * find_user(X509 *x509) {
+    return _find_user(x509, NULL);
+}
+
+/*
+* This function searches mapper module list until
+* it finds a module that returns a login name for
+* provided certificate and an optional login (user)
+* description.
+*/
+char * find_user_desc(X509 *x509, char **desc) {
+    mapper_module *mm = NULL;
+    const char *login = _find_user(x509, &mm);
+    if (login) {
+        if (mm != NULL && mm->describer) {
+            *desc = mm->describer(x509, mm->context);
+            if (NULL == *desc) *desc = "";
+        } else {
+            *desc = "";
+        }
+    }
+    return login;
+}
+
+static int _match_user(X509 *x509, const char *login, mapper_module **mm) {
+	int old_level= get_debug_level();
+	struct mapper_listitem *item = root_mapper_list;
+	if (!x509) return -1;
+	/* if no login provided, call  */
+	if (!login) return 0;
+	while (item) {
+	    int res=0; /* default: no match */
+	    if (!item->module->module_data->matcher) {
+	    	DBG1("Mapper '%s' has no match() function",item->module->module_name);
+	    } else {
+            set_debug_level(item->module->module_data->dbg_level);
+            res = (*item->module->module_data->matcher)(x509,login,item->module->module_data->context);
+            set_debug_level(old_level);
+            DBG2("Mapper module %s match() returns %d",item->module->module_name,res);
+	    }
+	    if (res > 0) {
+            if (mm != NULL) *mm = item->module->module_data;
+            return res;
+        }
+	    if (res<0) { /* show error and continue */
+	    	DBG1("Error in module %s",item->module->module_name);
+	    }
+	    item=item->next;
+	}
+	return 0;
 }
 
 /**
@@ -290,27 +344,30 @@ char * find_user(X509 *x509) {
 *         -1 on error
 */
 int match_user(X509 *x509, const char *login) {
-	int old_level= get_debug_level();
-	struct mapper_listitem *item = root_mapper_list;
-	if (!x509) return -1;
-	/* if no login provided, call  */
-	if (!login) return 0;
-	while (item) {
-	    int res=0; /* default: no match */
-	    if (!item->module->module_data->matcher) {
-	    	DBG1("Mapper '%s' has no match() function",item->module->module_name);
-	    } else {
-		set_debug_level(item->module->module_data->dbg_level);
-	        res = (*item->module->module_data->matcher)(x509,login,item->module->module_data->context);
-		set_debug_level(old_level);
-	        DBG2("Mapper module %s match() returns %d",item->module->module_name,res);
-	    }
-	    if (res>0) return res;
-	    if (res<0) { /* show error and continue */
-	    	DBG1("Error in module %s",item->module->module_name);
-	    }
-	    item=item->next;
-	}
-	return 0;
+    return _match_user(x509, login, NULL);
 }
 
+/**
+* This function searches a mapper module list until
+* it finds a module that matches provided login name.
+* If login is null, call find_user and returns 1, or 0 depending
+* on whether a user is found.
+*
+* Additionally, returns the a description for the found login,
+* if any.
+*
+* @return 1 if match, 0 no match, -1 on error.
+*/
+int match_user_desc(X509 *x509, const char *login, char **desc) {
+    mapper_module *mm = NULL;
+    int res = _match_user(x509, login, &mm);
+    if (1 == res) {
+        if (mm != NULL && mm->describer) {
+            *desc = mm->describer(x509, mm->context);
+            if (NULL == *desc) *desc = "";
+        } else {
+            *desc = "";
+        }
+    }
+    return res;
+}
