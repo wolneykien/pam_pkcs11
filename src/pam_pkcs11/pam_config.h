@@ -46,6 +46,7 @@ struct configuration_st {
 	const char *username; /* provided user name */
 	int quiet;
 	int err_display_time;
+    int pin_count_low;
 };
 
 struct configuration_st *pk_configure( int argc, const char **argv );
