@@ -1498,9 +1498,9 @@ int get_slot_ ## name (pkcs11_handle_t *h)      \
 
 DEFINE_GET_SLOT(login_required, CKF_LOGIN_REQUIRED)
 DEFINE_GET_SLOT(protected_authentication_path, CKF_PROTECTED_AUTHENTICATION_PATH)
-DEFINE_GET_SLOT(user_pin_count_low, CFK_USER_PIN_COUNT_LOW)
+DEFINE_GET_SLOT(user_pin_count_low, CKF_USER_PIN_COUNT_LOW)
 DEFINE_GET_SLOT(user_pin_final_try, CKF_USER_PIN_FINAL_TRY)
-DEFINE_GET_SLOT(user_pin_locked, CFK_USER_PIN_LOCKED)
+DEFINE_GET_SLOT(user_pin_locked, CKF_USER_PIN_LOCKED)
 DEFINE_GET_SLOT(user_pin_to_be_changed, CKF_USER_PIN_TO_BE_CHANGED)
 
 static void free_certs(cert_object_t **certs, int cert_count)
