@@ -47,6 +47,7 @@
 #include "../common/cert_st.h"
 #include "pam_config.h"
 #include "mapper_mgr.h"
+#include "lowlevel_mgr.h"
 
 #ifdef ENABLE_NLS
 #include <libintl.h>
@@ -623,7 +624,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     } else {
         rv = get_slot_user_pin_count_low(ph);
         if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_count_low", configuration);
-        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: Incorrect login attempts were there!"));
+        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: There were incorrect login attempts!"));
         sleep(configuration->err_display_time);
     }
 
@@ -680,10 +681,34 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
-			sleep(configuration->err_display_time);
-		}
-      goto auth_failed_nopw;
+        }
+        if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
+            int pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, 0);
+            if (pins_left > 0) {
+                if (pins_left < configuration->pin_count_low) {
+                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                               _("Error 2321: Wrong smartcard PIN. Only %i attempts left!",
+                                 pins_left));
+                } else {
+                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                               _("Error 2322: Wrong smartcard PIN. %i attempts left!",
+                                 pins_left));
+                }
+            } else if (pins_left == 0) {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           _("Error 2323: Wrong smartcard PIN. The PIN is locked now!"));
+            } else {
+                ERR1("pin_count() from %s failed", lowlevel->module_name);
+                if (!configuration->quiet) {
+                    pam_syslog(pamh, LOG_ERR, "pin_count() from %s failed",
+                               lowlevel->module_name);
+                }
+            }
+        } else {
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+        }
+        sleep(configuration->err_display_time);
+        goto auth_failed_nopw;
     }
   }
 
@@ -700,6 +725,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* load mapper modules */
   load_mappers(configuration->ctx);
+  /* load lowlevel modules */
+  struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx );
 
   /* find a valid and matching certificates */
   for (i = 0; i < ncert; i++) {
@@ -937,6 +964,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
            pam_strerror(pamh, rv));
   }
 
+  /* unload lowlevel modules */
+  unload_lowlevel( lowlevel );
   /* unload mapper modules */
   unload_mappers();
 
@@ -959,6 +988,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     free(password); /* erase and free in-memory password data */
 
 auth_failed_nopw:
+    unload_lowlevel( lowlevel );
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
