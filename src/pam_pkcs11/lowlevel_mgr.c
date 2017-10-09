@@ -38,7 +38,7 @@
 * Load and initialize a lowlevel module.
 * Returns descriptor on success, NULL on fail.
 */
-struct lowlevel_instance *load_module(scconf_context *ctx, const char * name) {
+struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) {
 
 	const scconf_block *root;
 	scconf_block **blocks, *blk;
@@ -108,7 +108,7 @@ struct lowlevel_instance *load_module(scconf_context *ctx, const char * name) {
 	return mymodule;
 }
 
-void unload_module( struct lowlevel_instance *module ) {
+void unload_llmodule( struct lowlevel_instance *module ) {
 	if (!module) return;
 
     DBG1("Calling lowlevel_module_end() %s", module->module_name);
@@ -139,7 +139,7 @@ struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
 		return NULL;
 	}
     
-	const char name = scconf_get_str(root, "use_lowlevel", NULL);
+	const char *name = scconf_get_str(root, "use_lowlevel", NULL);
 	if (!name) {
         DBG("No use_lowlevel entry found in config");
         return NULL;
@@ -147,7 +147,7 @@ struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
     
     struct lowlevel_instance *module = load_module(ctx, name);
     if (module) {
-        reutrn module;
+        return module;
 	}
 
     return NULL;
