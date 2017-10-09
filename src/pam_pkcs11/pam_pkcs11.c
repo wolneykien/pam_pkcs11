@@ -687,12 +687,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
             if (pins_left > 0) {
                 if (pins_left < configuration->pin_count_low) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               _("Error 2321: Wrong smartcard PIN. Only %i attempts left!",
-                                 pins_left));
+                               _("Error 2321: Wrong smartcard PIN. Only %i attempts left!"),
+                                 pins_left);
                 } else {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               _("Error 2322: Wrong smartcard PIN. %i attempts left!",
-                                 pins_left));
+                               _("Error 2322: Wrong smartcard PIN. %i attempts left!"),
+                                 pins_left);
                 }
             } else if (pins_left == 0) {
                 pam_prompt(pamh, PAM_ERROR_MSG , NULL,
