@@ -624,9 +624,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         sleep(configuration->err_display_time);
     } else {
         rv = get_slot_user_pin_count_low(ph);
-        if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
-        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: There were incorrect login attempts!"));
-        sleep(configuration->err_display_time);
+        if (rv) {
+            if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
+            pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: There were incorrect login attempts!"));
+            sleep(configuration->err_display_time);
+        }
     }
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
