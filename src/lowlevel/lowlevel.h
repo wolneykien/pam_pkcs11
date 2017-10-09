@@ -44,7 +44,7 @@ typedef struct lowlevel_module_st {
     /** pointer to lowlevel local data */
     void *context; 
     /** PIN-code input attempts */
-    int (*pin_count)(void *context, int sopin);
+    int (*pin_count)(void *context, unsigned int slot_num, int sopin);
     /** module de-initialization */
     void (*deinit)( void *context); 
 } lowlevel_module;

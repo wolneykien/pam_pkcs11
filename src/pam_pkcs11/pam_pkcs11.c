@@ -684,7 +684,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
         }
         if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
-            int pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, 0);
+            int pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, slot_num, 0);
             if (pins_left > 0) {
                 if (pins_left < configuration->pin_count_low) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
