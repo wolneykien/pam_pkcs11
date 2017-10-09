@@ -368,7 +368,7 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     return rv;
 }
 
-static void report_pkcs11_lib_error(const char func,
+static void report_pkcs11_lib_error(const char *func,
                                     struct configuration_st *configuration)
 {
     ERR1("%s() failed: %s", func, get_error());
