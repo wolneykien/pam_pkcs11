@@ -371,7 +371,7 @@ static int pkcs11_close_session( pam_handle_t *pamh,
 static void report_pkcs11_lib_error(const char *func,
                                     struct configuration_st *configuration)
 {
-    ERR1("%s() failed: %s", func, get_error());
+    ERR2("%s() failed: %s", func, get_error());
     if (!configuration->quiet) {
         pam_syslog(pamh, LOG_ERR, "%s() failed: %s", func, get_error());
     }
