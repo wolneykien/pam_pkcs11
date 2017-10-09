@@ -368,7 +368,8 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     return rv;
 }
 
-static void report_pkcs11_lib_error(const char *func,
+static void report_pkcs11_lib_error(pam_handle_t *pamh,
+                                    const char *func,
                                     struct configuration_st *configuration)
 {
     ERR2("%s() failed: %s", func, get_error());
@@ -594,7 +595,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   rv = get_slot_user_pin_locked(ph);
   if (rv) {
-      if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_locked", configuration);
+      if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
       pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("User PIN is locked!"));
       sleep(configuration->err_display_time);
       release_pkcs11_module(ph);
@@ -618,12 +619,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     rv = get_slot_user_pin_final_try(ph);
     if (rv) {
-        if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_final_try", configuration);
+        if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_final_try", configuration);
         pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: User PIN FINAL TRY!!!"));
         sleep(configuration->err_display_time);
     } else {
         rv = get_slot_user_pin_count_low(ph);
-        if (rv < 0) report_pkcs11_lib_error("get_slot_user_pin_count_low", configuration);
+        if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
         pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: There were incorrect login attempts!"));
         sleep(configuration->err_display_time);
     }
@@ -965,7 +966,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
 
   /* unload lowlevel modules */
-  unload_lowlevel( lowlevel );
+  unload_llmodule( lowlevel );
   /* unload mapper modules */
   unload_mappers();
 
@@ -988,7 +989,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     free(password); /* erase and free in-memory password data */
 
 auth_failed_nopw:
-    unload_lowlevel( lowlevel );
+    unload_llmodule( lowlevel );
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
