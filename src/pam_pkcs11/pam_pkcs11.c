@@ -693,13 +693,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                                pins_left > 1 ?
                                  _("Error 2320.1: Wrong smartcard PIN. Only %i attempts left!"):
                                  _("Error 2320.1: Wrong smartcard PIN. Only 1 attempt left!"),
-                                 pins_left);
+                               pins_left);
                 } else {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                                pins_left > 1 ?
                                  _("Error 2320.2: Wrong smartcard PIN. %i attempts left!"):
                                  _("Error 2320.2: Wrong smartcard PIN. 1 attempt left!"),
-                                 pins_left);
+                               pins_left);
                 }
             } else if (pins_left == 0) {
                 pam_prompt(pamh, PAM_ERROR_MSG , NULL,
