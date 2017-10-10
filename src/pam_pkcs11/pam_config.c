@@ -66,7 +66,8 @@ struct configuration_st configuration = {
 	NULL,				/* char *username */
 	0,                               /* int quiet */
 	0,			/* err_display_time */
-    5           /* pin_count_low */
+    5,          /* pin_count_low */
+    0           /* force_pin_change */
 };
 
 #ifdef DEBUG_CONFIG
@@ -92,6 +93,7 @@ static void display_config (void) {
         DBG1("ocsp_policy %d",configuration.policy.ocsp_policy);
         DBG1("err_display_time %d", configuration.err_display_time);
         DBG1("pin_count_low %d",configuration.pin_count_low);
+        DBG1("force_pin_change %d",configuration.force_pin_change);
 }
 #endif
 
@@ -147,6 +149,9 @@ static void parse_config_file(void) {
 	    scconf_get_str(root,"use_pkcs11_module",configuration.pkcs11_module);
 	configuration.pin_count_low =
 	    scconf_get_int(root,"pin_count_low",configuration.pin_count_low);
+	configuration.force_pin_change =
+	    scconf_get_int(root,"force_pin_change",configuration.force_pin_change);
+
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {
