@@ -997,7 +997,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   if (pin_to_be_changed) {
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 _("User PIN need to be changed"));
+                 _("User PIN needs to be changed"));
   }
 
   /* close pkcs #11 session */
