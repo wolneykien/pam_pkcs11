@@ -1118,8 +1118,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 
       rv = pam_set_pin( pamh, ph, slot_num, configuration, NULL,
                         init_pin != NULL );
-      
-      pkcs11_close_session( pamh, configuration, ph );
+
       release_pkcs11_module( ph );
 
       return rv;
@@ -1128,22 +1127,13 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
   }
 }
 
-static int pam_set_pin( pam_handle_t *pamh,
-                        pkcs11_handle_t *ph,
-                        unsigned int slot_num,
-                        struct configuration_st *configuration,
-                        char *old_pass,
-                        int init_pin )
+static int pam_do_set_pin( pam_handle_t *pamh,
+                           pkcs11_handle_t *ph,
+                           unsigned int slot_num,
+                           struct configuration_st *configuration,
+                           char *old_pass,
+                           int init_pin )
 {
-    char *new_pass;
-    int clean_old_pass = (old_pass == NULL);
-
-    rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
-    if (rv != 0) {
-        release_pkcs11_module(ph);
-        return PAM_AUTHINFO_UNAVAIL;
-    }
-
     rv = get_slot_protected_authentication_path( ph );
     if ((-1 == rv) || (0 == rv)) {
         /* no CKF_PROTECTED_AUTHENTICATION_PATH */
@@ -1159,13 +1149,11 @@ static int pam_set_pin( pam_handle_t *pamh,
 
             if (rv != PAM_SUCCESS) {
                 _get_pwd_error( pamh, configuration, rv );
-                release_pkcs11_module(ph);
                 return PAM_AUTHTOK_RECOVERY_ERR;
             }
 
             rv = check_pwd( pamh, configuration, old_pass );
             if ( rv != 0 ) {
-                release_pkcs11_module(ph);
                 if (clean_old_pass && old_pass) {
                     memset( old_pass, 0, strlen(old_pass) );
                     free( old_pass );
@@ -1182,13 +1170,11 @@ static int pam_set_pin( pam_handle_t *pamh,
 
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
-            release_pkcs11_module(ph);
             return PAM_AUTHTOK_ERR;
         }
 
         rv = check_pwd( pamh, configuration, new_pass );
         if ( rv != 0 ) {
-            release_pkcs11_module(ph);
             if (clean_old_pass && old_pass) {
                 memset( old_pass, 0, strlen(old_pass) );
                 free( old_pass );
@@ -1205,7 +1191,6 @@ static int pam_set_pin( pam_handle_t *pamh,
 
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
-            release_pkcs11_module(ph);
             if (clean_old_pass && old_pass) {
                 memset( old_pass, 0, strlen(old_pass) );
                 free( old_pass );
@@ -1223,7 +1208,6 @@ static int pam_set_pin( pam_handle_t *pamh,
                            _("Confirm PIN mismatch"));
                 sleep(configuration->err_display_time);
             }
-            release_pkcs11_module(ph);
             if (clean_old_pass && old_pass) {
                 memset( old_pass, 0, strlen(old_pass) );
                 free( old_pass );
@@ -1279,6 +1263,29 @@ static int pam_set_pin( pam_handle_t *pamh,
         }
         return PAM_AUTHTOK_ERR;
     }
+}
+
+static int pam_set_pin( pam_handle_t *pamh,
+                        pkcs11_handle_t *ph,
+                        unsigned int slot_num,
+                        struct configuration_st *configuration,
+                        char *old_pass,
+                        int init_pin )
+{
+    char *new_pass;
+    int clean_old_pass = (old_pass == NULL);
+
+    rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
+    if (rv != 0) {
+        return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    rv = pam_do_set_pin( pamh, ph, slot_num, configuration, old_pass,
+                         init_pin );
+
+    pkcs11_close_session( pamh, configuration, ph );
+
+    return rv;
 }
 
 #ifdef PAM_STATIC
