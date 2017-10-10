@@ -621,7 +621,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         rv = check_pwd( pamh, configuration, password );
         if ( rv != 0 ) {
 			release_pkcs11_module(ph);
-			free(password);
+            if ( password ) {
+                memset( password, 0, strlen(password) );
+                free( password );
+            }
 			return PAM_AUTH_ERR;
 		}
 	}
@@ -1032,7 +1035,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           rv = check_pwd( pamh, configuration, old_pass );
           if ( rv != 0 ) {
               release_pkcs11_module(ph);
-              free(old_pass);
+              if ( old_pass ) {
+                  memset( old_pass, 0, strlen(old_pass) );
+                  free(old_pass);
+              }
               return PAM_AUTHTOK_RECOVERY_ERR;
           }
 
@@ -1053,7 +1059,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
               release_pkcs11_module(ph);
               memset( old_pass, 0, strlen(old_pass) );
               free( old_pass );
-              free( new_pass );
+              if ( new_pass ) {
+                  memset( new_pass, 0, strlen(new_pass) );
+                  free( new_pass );
+              }
               return PAM_AUTHTOK_ERR;
           }
 
