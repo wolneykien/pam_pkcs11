@@ -691,19 +691,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                 if (pins_left < configuration->pin_count_low) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                                pins_left > 1 ?
-                                 _("Error 2321: Wrong smartcard PIN. Only %i attempts left!"):
-                                 _("Error 2321: Wrong smartcard PIN. Only 1 attempt left!"),
+                                 _("Error 2320.1: Wrong smartcard PIN. Only %i attempts left!"):
+                                 _("Error 2320.1: Wrong smartcard PIN. Only 1 attempt left!"),
                                  pins_left);
                 } else {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                                pins_left > 1 ?
-                                 _("Error 2322: Wrong smartcard PIN. %i attempts left!"):
-                                 _("Error 2322: Wrong smartcard PIN. 1 attempt left!"),
+                                 _("Error 2320.2: Wrong smartcard PIN. %i attempts left!"):
+                                 _("Error 2320.2: Wrong smartcard PIN. 1 attempt left!"),
                                  pins_left);
                 }
             } else if (pins_left == 0) {
                 pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error 2323: Wrong smartcard PIN. The PIN is locked now!"));
+                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
             } else {
                 ERR1("pin_count() from %s failed", lowlevel->module_name);
                 if (!configuration->quiet) {
