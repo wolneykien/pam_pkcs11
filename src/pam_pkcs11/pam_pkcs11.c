@@ -309,7 +309,7 @@ static int pkcs11_find_slot( pam_handle_t *pamh,
                      ph,
                      configuration->slot_description,
                      login_token_name,
-                     &slot_num
+                     slot_num
             );
         }
     } else if (configuration->slot_num != -1) {
@@ -318,7 +318,7 @@ static int pkcs11_find_slot( pam_handle_t *pamh,
                                                login_token_name, slot_num);
         } else {
           rv = wait_for_token(ph, configuration->slot_num,
-                              login_token_name, &slot_num);
+                              login_token_name, slot_num);
         }
     }
 
