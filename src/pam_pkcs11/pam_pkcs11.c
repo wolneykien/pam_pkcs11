@@ -1147,6 +1147,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                            char *old_pass,
                            int init_pin )
 {
+    int rv;
     int clean_old_pass = (old_pass == NULL);
     char *new_pass;
 
