@@ -1192,7 +1192,10 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                 memset( old_pass, 0, strlen(old_pass) );
                 free( old_pass );
             }
-            free( new_pass );
+            if ( new_pass ) {
+                memset( new_pass, 0, strlen(new_pass) );
+                free( new_pass );
+            }
             return PAM_AUTHTOK_ERR;
         }
 
