@@ -1406,20 +1406,43 @@ int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw)
   return 0;
 }
 
-int pkcs11_login(pkcs11_handle_t *h, char *password)
+static int _pkcs11_login(pkcs11_handle_t *h, int login_type, char *password)
 {
   int rv;
 
-  DBG("login as user CKU_USER");
+  switch (login_type) {
+  case CKU_USER:
+      DBG("login as user CKU_USER");
+      break;
+  case CKU_SO:
+      DBG("login as user CKU_SO");
+      break;
+  default:
+      ERR1("Unexpected login type: 0x%x", login_type);
+      return -1;
+  }
+  
   if (password)
-	  rv = h->fl->C_Login(h->session, CKU_USER, (unsigned char*)password, strlen(password));
+	  rv = h->fl->C_Login(h->session, login_type,
+                          (unsigned char*)password, strlen(password));
   else
-	  rv = h->fl->C_Login(h->session, CKU_USER, NULL, 0);
+	  rv = h->fl->C_Login(h->session, login_type, NULL, 0);
+  
   if ((rv != CKR_OK) && (rv != CKR_USER_ALREADY_LOGGED_IN)) {
     set_error("C_Login() failed: 0x%08lX", rv);
     return -1;
   }
   return 0;
+}
+
+int pkcs11_login(pkcs11_handle_t *h, char *password)
+{
+    return _pkcs11_login(h, CKU_USER, password);
+}
+
+int pkcs11_login_so(pkcs11_handle_t *h, char *password)
+{
+    return _pkcs11_login(h, CKU_SO, password);
 }
 
 int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
@@ -1432,6 +1455,21 @@ int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
     if ( rv != CKR_OK ) {
         DBG1("C_SetPIN() failed: 0x%08lX", rv);
         set_error("C_SetPIN() failed: 0x%08lX", rv);
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass)
+{
+    int rv;
+
+    rv = h->fl->C_InitPIN( h->session, new_pass, strlen(new_pass) );
+
+    if ( rv != CKR_OK ) {
+        DBG1("C_InitPIN() failed: 0x%08lX", rv);
+        set_error("C_InitPIN() failed: 0x%08lX", rv);
         return -1;
     } else {
         return 0;

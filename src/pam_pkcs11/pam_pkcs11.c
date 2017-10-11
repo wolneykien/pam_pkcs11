@@ -1014,6 +1014,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_AUTHINFO_UNAVAIL;
       }
 
+      const char *init_pin = pam_getenv(pamh, "INIT_PIN");
+      if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
+      
       rv = get_slot_protected_authentication_path( ph );
       if ((-1 == rv) || (0 == rv)) {
           /* no CKF_PROTECTED_AUTHENTICATION_PATH */
@@ -1022,7 +1025,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 
           /* Old PIN */
           snprintf(password_prompt, sizeof(password_prompt),
-                   _("Old %s PIN: "), _(configuration->token_type));
+                   init_pin ? _("%s SO PIN: ") : _("Old %s PIN: "),
+                   _(configuration->token_type));
           rv = pam_get_pwd(pamh, &old_pass, password_prompt,
                            0, PAM_AUTHTOK);
 
@@ -1110,10 +1114,18 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           new_pass = NULL;
       }
 
-      rv = pkcs11_login( ph, old_pass );
-      if ( rv == 0 ) {
-          rv = pkcs11_setpin( ph, old_pass, new_pass );
+      if (init_pin) {
+          rv = pkcs11_login_so( ph, old_pass );
+          if ( rv == 0 ) {
+              rv = pkcs11_initpin( ph, new_pass );
+          }
+      } else {
+          rv = pkcs11_login( ph, old_pass );
+          if ( rv == 0 ) {
+              rv = pkcs11_setpin( ph, old_pass, new_pass );
+          }
       }
+      
       pkcs11_close_session( pamh, configuration, ph );
       release_pkcs11_module( ph );
 
@@ -1121,7 +1133,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           memset( old_pass, 0, strlen(old_pass) );              
           free( old_pass );
       }
-      if ( new_pass) {
+      if ( new_pass ) {
           memset( new_pass, 0, strlen(new_pass) );
           free( new_pass );
       }
@@ -1129,9 +1141,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       if ( rv == 0 ) {
           return PAM_SUCCESS;
       } else {
-          ERR("C_SetPIN error");
+          ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
           if (!configuration->quiet) {
-              pam_syslog(pamh, LOG_ERR, "C_SetPIN error");
+              pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
+                         init_pin ? "Init" : "Set");
               pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                          _("Error: Unable to set new PIN"));
               sleep(configuration->err_display_time);
