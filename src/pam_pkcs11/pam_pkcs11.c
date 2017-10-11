@@ -1147,6 +1147,9 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                            char *old_pass,
                            int init_pin )
 {
+    int clean_old_pass = (old_pass == NULL);
+    char *new_pass;
+
     rv = get_slot_protected_authentication_path( ph );
     if ((-1 == rv) || (0 == rv)) {
         /* no CKF_PROTECTED_AUTHENTICATION_PATH */
@@ -1288,8 +1291,7 @@ static int pam_set_pin( pam_handle_t *pamh,
                         char *old_pass,
                         int init_pin )
 {
-    char *new_pass;
-    int clean_old_pass = (old_pass == NULL);
+    int rv;
 
     rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
     if (rv != 0) {
