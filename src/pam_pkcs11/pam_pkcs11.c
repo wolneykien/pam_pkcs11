@@ -1116,6 +1116,19 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       const char *init_pin = pam_getenv(pamh, "INIT_PIN");
       if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
 
+      if (flags & PAM_CHANGE_EXPIRED_AUTHTOK) {
+          rv = get_slot_user_pin_to_be_changed(ph);
+          if (rv < 0) {
+              report_pkcs11_lib_error(pamh,
+                                      "get_slot_user_pin_to_be_changed",
+                                      configuration);
+              return PAM_AUTHINFO_UNAVAIL;
+          }
+          if (!rv) {
+              return PAM_SUCCESS;
+          }
+      }
+
       rv = pam_set_pin( pamh, ph, slot_num, configuration, NULL,
                         init_pin != NULL );
 
