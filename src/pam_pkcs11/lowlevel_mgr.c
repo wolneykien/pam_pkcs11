@@ -145,7 +145,7 @@ struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
         return NULL;
 	}
     
-    struct lowlevel_instance *module = load_module(ctx, name);
+    struct lowlevel_instance *module = load_llmodule(ctx, name);
     if (module) {
         return module;
 	}
