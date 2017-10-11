@@ -156,7 +156,7 @@ Parses the configurable prompts
 static void parse_prompts(scconf_context *ctx, const scconf_block *root,
                           const char *service)
 {
-    scconf_block *prompts_mblock = root;
+    const scconf_block *prompts_mblock = root;
     scconf_block **prompts_mblocks;
 
     if (service) {
@@ -336,9 +336,9 @@ static void parse_config_file(const char *service) {
 	/* load_mappers(ctx); */
 
     /* Load promt strings */
-    parse_prompts(root, NULL);
-    parse_prompts(root, "default");
-    parse_prompts(root, service);
+    parse_prompts(ctx, root, NULL);
+    parse_prompts(ctx, root, "default");
+    parse_prompts(ctx, root, service);
 
 	/* that's all folks: return */
 	return;
