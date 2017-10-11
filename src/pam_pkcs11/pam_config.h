@@ -78,6 +78,7 @@ struct configuration_st {
     struct prompts_st prompts;
 };
 
-struct configuration_st *pk_configure( int argc, const char **argv );
+struct configuration_st *pk_configure( const char *service,
+                                       int argc, const char **argv );
 
 #endif

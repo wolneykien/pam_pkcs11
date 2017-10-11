@@ -144,121 +144,65 @@ static void init_configuration() {
     init_prompts();
 }
 
+# define PARSE_PROMPT(key)                                      \
+    configuration.prompts.key =                                 \
+        scconf_get_str(prompts_mblock,                          \
+                       service ? #key : "prompt_" #key,         \
+                       configuration.prompts.key)
+
 /*
 Parses the configurable prompts
 */
-static void parse_prompts(const scconf_block *root) {
-    configuration.prompts.start_auth =              \
-        scconf_get_str(root, "prompt_start_auth",
-                       configuration.prompts.start_auth);
+static void parse_prompts(scconf_context *ctx, const scconf_block *root,
+                          const char *service)
+{
+    scconf_block *prompts_mblock = root;
+    scconf_block **prompts_mblocks;
 
-    configuration.prompts.insert_or_enter =             \
-        scconf_get_str(root, "prompt_insert_or_enter",
-                       configuration.prompts.insert_or_enter);
-
-    configuration.prompts.no_token = \
-        scconf_get_str(root, "prompt_no_token",
-                       configuration.prompts.no_token);
-
-    configuration.prompts.insert_named = \
-        scconf_get_str(root, "prompt_insert_named",
-                       configuration.prompts.insert_named);
-
-    configuration.prompts.insert = \
-        scconf_get_str(root, "prompt_insert",
-                       configuration.prompts.insert);
-
-    configuration.prompts.no_card = \
-        scconf_get_str(root, "prompt_no_card",
-                       configuration.prompts.no_card);
-
-    configuration.prompts.found = \
-        scconf_get_str(root, "prompt_found",
-                       configuration.prompts.found);
-
-    configuration.prompts.login_failed = \
-        scconf_get_str(root, "prompt_login_failed",
-                       configuration.prompts.login_failed);
-
-    configuration.prompts.welcome =                  \
-        scconf_get_str(root, "prompt_welcome",
-                       configuration.prompts.welcome);
-
-    configuration.prompts.wrong_pin =                  \
-        scconf_get_str(root, "prompt_wrong_pin",
-                       configuration.prompts.wrong_pin);
-
-    configuration.prompts.no_cert =                  \
-        scconf_get_str(root, "prompt_no_cert",
-                       configuration.prompts.no_cert);
-
-    configuration.prompts.cert_verif =                  \
-        scconf_get_str(root, "prompt_cert_verif",
-                       configuration.prompts.cert_verif);
-
-    configuration.prompts.cert_expired =                  \
-        scconf_get_str(root, "prompt_cert_expired",
-                       configuration.prompts.cert_expired);
-
-    configuration.prompts.cert_not_yet =                  \
-        scconf_get_str(root, "prompt_cert_not_yet",
-                       configuration.prompts.cert_not_yet);
-
-    configuration.prompts.cert_inv_sig =                  \
-        scconf_get_str(root, "prompt_cert_inv_sig",
-                       configuration.prompts.cert_inv_sig);
-
-    configuration.prompts.cert_inv =                  \
-        scconf_get_str(root, "prompt_cert_inv",
-                       configuration.prompts.cert_inv);
-
-    configuration.prompts.no_user_match =                  \
-        scconf_get_str(root, "prompt_no_user_match",
-                       configuration.prompts.no_user_match);
-
-    configuration.prompts.no_cert_match =                  \
-        scconf_get_str(root, "prompt_no_cert_match",
-                       configuration.prompts.no_cert_match);
-
-    configuration.prompts.pin_prompt =                  \
-        scconf_get_str(root, "prompt_pin_prompt",
-                       configuration.prompts.pin_prompt);
-
-    configuration.prompts.pin_read_err =                  \
-        scconf_get_str(root, "prompt_pin_read_err",
-                       configuration.prompts.pin_read_err);
-
-    configuration.prompts.empty_pin_err =                  \
-        scconf_get_str(root, "prompt_empty_pin_err",
-                       configuration.prompts.empty_pin_err);
-
-    configuration.prompts.enter_pin_pinpad =                  \
-        scconf_get_str(root, "prompt_enter_pin_pinpad",
-                       configuration.prompts.enter_pin_pinpad);
+    if (service) {
+        prompts_mblocks = scconf_find_blocks(ctx, root, "prompts", service);
+        if (prompts_mblocks) {
+            prompts_mblock = prompts_mblocks[0];
+            free(prompts_mblocks);
+        } else {
+            return;
+        }
+    }
     
-    configuration.prompts.checking_sig =                  \
-        scconf_get_str(root, "prompt_checking_sig",
-                       configuration.prompts.checking_sig);
-
-    configuration.prompts.sig_failed =                  \
-        scconf_get_str(root, "prompt_sig_failed",
-                       configuration.prompts.sig_failed);
-
-    configuration.prompts.sig_verif_failed =                  \
-        scconf_get_str(root, "prompt_sig_verif_failed",
-                       configuration.prompts.sig_verif_failed);
-        
-    /* configuration.prompts. =                  \
-     *     scconf_get_str(root, "prompt_",
-     *                    configuration.prompts.);
-     */
+    PARSE_PROMPT(start_auth);
+    PARSE_PROMPT(insert_or_enter);
+    PARSE_PROMPT(no_token);
+    PARSE_PROMPT(insert_named);
+    PARSE_PROMPT(insert);
+    PARSE_PROMPT(no_card);
+    PARSE_PROMPT(found);
+    PARSE_PROMPT(login_failed);
+    PARSE_PROMPT(welcome);
+    PARSE_PROMPT(welcome_user);
+    PARSE_PROMPT(wrong_pin);
+    PARSE_PROMPT(no_cert);
+    PARSE_PROMPT(cert_verif);
+    PARSE_PROMPT(cert_expired);
+    PARSE_PROMPT(cert_not_yet);
+    PARSE_PROMPT(cert_inv_sig);
+    PARSE_PROMPT(cert_inv);
+    PARSE_PROMPT(no_user_match);
+    PARSE_PROMPT(no_cert_match);
+    PARSE_PROMPT(pin_prompt);
+    PARSE_PROMPT(pin_read_err);
+    PARSE_PROMPT(empty_pin_err);
+    PARSE_PROMPT(enter_pin_pinpad);
+    PARSE_PROMPT(checking_sig);
+    PARSE_PROMPT(sig_failed);
+    PARSE_PROMPT(sig_verif_failed);
+    /* PARSE_PROMPT(...); */
 }
 
 /*
 parse configuration file
 */
-static void parse_config_file(void) {
-	scconf_block **pkcs11_mblocks,*pkcs11_mblk;
+static void parse_config_file(const char *service) {
+	scconf_block **pkcs11_mblocks, *pkcs11_mblk;
 	const scconf_list *mapper_list;
 	const scconf_list *policy_list;
  	const scconf_list *screen_saver_list;
@@ -392,7 +336,9 @@ static void parse_config_file(void) {
 	/* load_mappers(ctx); */
 
     /* Load promt strings */
-    parse_prompts(root);
+    parse_prompts(root, NULL);
+    parse_prompts(root, "default");
+    parse_prompts(root, service);
 
 	/* that's all folks: return */
 	return;
@@ -404,7 +350,8 @@ static void parse_config_file(void) {
 * 2- configuration file
 * 3- commandline arguments options
 */
-struct configuration_st *pk_configure( int argc, const char **argv ) {
+struct configuration_st *pk_configure( const char *service,
+                                       int argc, const char **argv ) {
 	init_configuration();
 	int i;
 	/* try to find a configuration file entry */
@@ -416,7 +363,7 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
     	}
 	DBG1("Using config file %s",configuration.config_file);
 	/* parse configuration file */
-	parse_config_file();
+	parse_config_file(service);
 #ifdef DEBUG_CONFIG
 	display_config();
 #endif

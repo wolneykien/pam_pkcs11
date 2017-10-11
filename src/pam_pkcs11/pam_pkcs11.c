@@ -229,6 +229,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   char env_temp[256] = "";
   char **issuer, **serial;
   const char *login_token_name = NULL;
+  const char *service;
 
 #ifdef ENABLE_NLS
   setlocale(LC_ALL, "");
@@ -236,8 +237,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   textdomain(PACKAGE);
 #endif
 
+  pam_get_item(pamh, PAM_SERVICE, &service);
+
   /* call configure routines */
-  configuration = pk_configure(argc,argv);
+  configuration = pk_configure( service, argc, argv );
   if (!configuration ) {
 	ERR("Error setting configuration parameters");
 	return PAM_AUTHINFO_UNAVAIL;
@@ -305,10 +308,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
    * a pam session module keyed off uid)
    */
   if (configuration->card_only) {
-	char *service;
 	if (configuration->screen_savers) {
 	    DBG("Is it a screen saver?");
-		pam_get_item(pamh, PAM_SERVICE, &service);
 	    for (i=0; configuration->screen_savers[i]; i++) {
 		if (strcmp(configuration->screen_savers[i], service) == 0) {
 		    is_a_screen_saver = 1;
