@@ -969,9 +969,9 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, con
 PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   char *login_token_name;
-
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
-  if (login_token_name) {
+  
+  {
       char *old_pass;
       char *new_pass;
       int rv; unsigned int slot_num;
@@ -996,17 +996,22 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
                              &slot_num, 0 );
       if ( rv != 0 ) {
+          ERR("No smartcard found")
           if (!configuration->quiet) {
-              pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("Error 2310: No smartcard found"));
-              sleep(configuration->err_display_time);
+              pam_syslog(pamh, LOG_ERR, "No smartcard found");
           }
+          if ( configuration->card_only || login_token_name ) {
+              pam_prompt(pamh, PAM_ERROR_MSG, NULL,
+                         _("Error 2310: No smartcard found"));
+              sleep(configuration->err_display_time);
+          }          
           release_pkcs11_module(ph);
-          if ( configuration->card_only ) {
+          if ( configuration->card_only || login_token_name ) {
               return PAM_AUTHINFO_UNAVAIL;
           } else {
               return PAM_IGNORE;
           }
-      }
+      }      
 
       rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
       if (rv != 0) {
@@ -1151,8 +1156,6 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
           return PAM_AUTHTOK_ERR;
       }
-  } else {
-      return PAM_IGNORE;
   }
 }
 
