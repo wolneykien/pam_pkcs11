@@ -996,7 +996,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
                              &slot_num, 0 );
       if ( rv != 0 ) {
-          ERR("No smartcard found")
+          ERR("No smartcard found");
           if (!configuration->quiet) {
               pam_syslog(pamh, LOG_ERR, "No smartcard found");
           }
