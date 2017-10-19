@@ -314,9 +314,23 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
 	/* look to see if username is already set */
 	pam_get_item(pamh, PAM_USER, &user);
-	if (user) {
+	if (user && user[0]) {
 	    DBG1("explicit username = [%s]", user);
-	}
+    } else if (configuration->default_username) {
+        user = configuration->default_username;
+        DBG1("implicit username = [%s]", user);
+        /* Set the configured default username in PAM to
+           prevent other modules form asking the user for
+           input. */
+        rv = pam_set_item(pamh, PAM_USER,(const void *)user);
+        if (rv != PAM_SUCCESS) {
+            ERR1("pam_set_item() failed %s", pam_strerror(pamh, rv));
+            if (!configuration->quiet) {
+                pam_syslog(pamh, LOG_ERR,
+                           "pam_set_item() failed %s", pam_strerror(pamh, rv));
+            }
+        }
+    }
   } else {
 	rv = pam_get_item(pamh, PAM_USER, &user);
 	if (rv != PAM_SUCCESS || user == NULL || user[0] == '\0') {
@@ -615,7 +629,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     /* CA and CRL verified, now check/find user */
 
-    if ( is_spaced_str(user) ) {
+    if ( !user || is_spaced_str(user) || (configuration->default_username && strcmp(user, configuration->default_username) == 0) ) {
       /*
 	if provided user is null or empty extract and set user
 	name from certificate

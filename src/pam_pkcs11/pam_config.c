@@ -90,6 +90,7 @@ static void display_config (void) {
         DBG1("signature_policy %d",configuration.policy.signature_policy);
         DBG1("ocsp_policy %d",configuration.policy.ocsp_policy);
 		DBG1("err_display_time %d", configuration.err_display_time);
+        DBG1("default_username %s",configuration.default_username);
 }
 #endif
 
@@ -143,6 +144,8 @@ static void parse_config_file(void) {
 	    scconf_get_bool(root,"wait_for_card",configuration.wait_for_card);
 	configuration.pkcs11_module = ( char * )
 	    scconf_get_str(root,"use_pkcs11_module",configuration.pkcs11_module);
+	configuration.default_username =
+	    scconf_get_str(root, "default_username", configuration.default_username);
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {
