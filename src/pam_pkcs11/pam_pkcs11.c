@@ -407,6 +407,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   char **issuer, **serial;
   const char *login_token_name = NULL;
   int pin_to_be_changed = 0;
+  int final_try = 0;
 
 #ifdef ENABLE_NLS
   setlocale(LC_ALL, "");
@@ -636,9 +637,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
 		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
 
+    final_try = 0;
     rv = get_slot_user_pin_final_try(ph);
     if (rv) {
         if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_final_try", configuration);
+        final_try = 1;
         pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING: User PIN FINAL TRY!!!"));
         sleep(configuration->err_display_time);
     } else {
@@ -731,7 +734,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                 }
             }
         } else {
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+            if (final_try) {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
+            } else {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+            }
         }
         sleep(configuration->err_display_time);
         goto auth_failed_nopw;
