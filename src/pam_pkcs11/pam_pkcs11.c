@@ -408,6 +408,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   const char *login_token_name = NULL;
   int pin_to_be_changed = 0;
   int final_try = 0;
+  int pin_locked = 0;
 
 #ifdef ENABLE_NLS
   setlocale(LC_ALL, "");
@@ -602,13 +603,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
+  pin_locked = 0;
   rv = get_slot_user_pin_locked(ph);
   if (rv) {
       if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
-      pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("User PIN is locked!"));
-      sleep(configuration->err_display_time);
-      release_pkcs11_module(ph);
-      return pkcs11_pam_fail;
+      pin_locked = 1;
   }
 
   rv = get_slot_user_pin_to_be_changed(ph);
@@ -633,9 +632,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     release_pkcs11_module(ph);
     return pkcs11_pam_fail;
   } else if (rv) {
-    /* get password */
-	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                 pin_locked ?
+                   _("Welcome %.32s! PIN is locked!") :
+                   _("Welcome %.32s!"),
+                 get_slot_tokenlabel(ph));
+
+      if (pin_locked) {
+          pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                     _("User PIN is locked!"));
+          sleep(configuration->err_display_time);
+          release_pkcs11_module(ph);
+          return pkcs11_pam_fail;
+      }
 
     final_try = 0;
     rv = get_slot_user_pin_final_try(ph);
