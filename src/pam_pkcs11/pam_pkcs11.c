@@ -1133,6 +1133,15 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       const char *init_pin = pam_getenv(pamh, "INIT_PIN");
       if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
 
+      if (!init_pin) {
+          rv = get_slot_user_pin_locked(ph);
+          if (rv) {
+              if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
+              DBG("Set InitPIN mode on because the user PIN is locked now");
+              init_pin = 1;
+          }
+      }
+
       if (flags & PAM_CHANGE_EXPIRED_AUTHTOK) {
           rv = get_slot_user_pin_to_be_changed(ph);
           if (rv < 0) {
