@@ -1020,6 +1020,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       }
 
       const char *init_pin = pam_getenv(pamh, "INIT_PIN");
+      if (!init_pin) init_pin = pam_getenv(pamh, "PAM_RESET_AUTHTOK");
       if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
       
       rv = get_slot_protected_authentication_path( ph );
