@@ -263,6 +263,7 @@ src/scconf/Makefile
 src/common/Makefile
 src/common/rsaref/Makefile
 src/tools/Makefile
+tools/pam_pkcs11_query_config
 src/mappers/Makefile
 src/pam_pkcs11/Makefile
 tools/Makefile
