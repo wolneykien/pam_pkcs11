@@ -30,6 +30,8 @@ AC_PROG_LN_S
 AM_PROG_LEX
 AC_PROG_MAKE_SET
 
+AM_PROG_LIBTOOL
+
 # check enable_dependency_tracking configure option
 AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
 
