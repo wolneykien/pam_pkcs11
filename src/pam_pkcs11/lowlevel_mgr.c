@@ -108,19 +108,19 @@ struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) 
 void unload_llmodule( struct lowlevel_instance *module ) {
 	if (!module) return;
 
-	if ( module->module_data->deinit ) {
+	if ( module->module_data && module->module_data->deinit ) {
         DBG1("Calling %s->deinit", module->module_name);
 		(*module->module_data->deinit)(module->module_data->context);
 	}
 
     free(module->module_data);
+	module->module_data = NULL;
 
     if (module->module_handler) {
 		DBG1("Unloading module %s", module->module_name);
 		dlclose(module->module_handler);
         module->module_handler = NULL;
 	}
-	module->module_data = NULL;
     
 	/* don't free name and libname: they are elements of
 	scconf tree */
