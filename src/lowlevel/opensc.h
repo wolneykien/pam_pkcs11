@@ -34,7 +34,22 @@ struct sc_apdu;
 
 typedef struct sc_apdu sc_apdu_t;
 
-int sc_establish_context(sc_context_t **ctx, const char *app_name);
+typedef struct sc_thread_context sc_thread_context_t;
+
+typedef struct {
+	/** version number of this structure (0 for this version) */
+	unsigned int  ver;
+	/** name of the application (used for finding application
+	 *  dependend configuration data). If NULL the name "default"
+	 *  will be used. */
+	const char    *app_name;
+	/** context flags */
+	unsigned long flags;
+	/** mutex functions to use (optional) */
+	sc_thread_context_t *thread_ctx;
+} sc_context_param_t;
+
+int sc_context_create(sc_context_t **ctx, const sc_context_param_t *parm);
 int sc_release_context(sc_context_t *ctx);
 
 int sc_connect_card(sc_reader_t *reader, struct sc_card **card);

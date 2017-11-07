@@ -22,8 +22,13 @@ open_context (void)
         ERR ("Unable to allocate memory for ISBC low-level context");
         return NULL;
     }
+
+    sc_context_param_t params = {
+        .app_name = "default",
+        .flags = SC_CTX_FLAG_ENABLE_DEFAULT_DRIVER,
+    };
     
-    int r = sc_establish_context (&(context->ctx), "ll_isbc");
+    int r = sc_context_create (&(context->ctx), &params);
 	if (r != SC_SUCCESS || !context->ctx)
     {
 	ERR1 ("Failed to create OpenSC context: %s", sc_strerror (r));
@@ -58,8 +63,6 @@ connect (struct context *context, unsigned int slot_num)
         return NULL;
 	}
 
-    //context->ctx->flags |= SC_CTX_FLAG_ENABLE_DEFAULT_DRIVER;
-    
     int r = sc_connect_card (con->reader, &(con->card));
     if (r != SC_SUCCESS || !con->card)
     {
