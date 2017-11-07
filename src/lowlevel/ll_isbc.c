@@ -33,6 +33,13 @@ open_context (void)
     return context;
 }
 
+static void
+close_context (struct context *context)
+{
+    sc_release_context (context->ctx);
+    free (context);
+}
+
 static connected *
 connect (struct context *context, unsigned int slot_num)
 {
@@ -159,8 +166,7 @@ deinit (void *_context)
 {
     if (!_context) return -1;
     struct context *context = (struct context *) _context;
-    sc_release_context (context->ctx);
-    free (context);
+    close_context (context);
 }
 
 lowlevel_module* lowlevel_module_init (lowlevel_module *module) {
