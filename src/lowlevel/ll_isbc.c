@@ -93,7 +93,8 @@ const uint8_t cmd_so0[] = {0x00, 0x20, 0x00, 0x81};
 static int
 transmit (struct context *context, struct connected *con,
           const uint8_t *apdu_buf, size_t apdu_len,
-          uint8_t *reply_buf, size_t reply_len)
+          uint8_t *reply_buf, size_t reply_len, size_t *resp_len,
+          uint16_t *status)
 {
     sc_apdu_t apdu;
     
@@ -103,8 +104,15 @@ transmit (struct context *context, struct connected *con,
     apdu.resp = reply_buf;
 	apdu.resplen = reply_len;
 
+    *resp_len = 0;
+    *status = 0;
+    
     r = sc_transmit_apdu (con->card, &apdu);
     if (r != SC_SUCCESS) return -1;
+
+    *resp_len = apdu.resplen;
+    *status = (uint16_t) (((apdu.sw1 & 0xFF) << 8) | (apdu.sw2 & 0xFF));
+    
     return 0;
 }
 
@@ -112,6 +120,8 @@ static int
 pin_count (void *_context, unsigned int slot_num, int sopin)
 {
     uint8_t buf[0xffff];
+    uint16_t status;
+    size_t resp_len;
     
     if (!_context) return -1;
     struct context *context = (struct context *) _context;
@@ -126,39 +136,35 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
     DBG ("Sending APDUs...");
     
     if (r == SC_SUCCESS)
-        r = transmit (context, con, cmd0, sizeof (cmd0), buf, sizeof (buf));
-    if (r == SC_SUCCESS)
-        r = transmit (context, con, cmd0, sizeof (cmd1), buf, sizeof (buf));
+        r = transmit (context, con, cmd0, sizeof (cmd0), buf, sizeof (buf),
+                      &resp_len, &status);
+    if (r == SC_SUCCESS && status == 0x9000)
+        r = transmit (context, con, cmd1, sizeof (cmd1), buf, sizeof (buf),
+                      &resp_len, &status);
 
-    if (r == SC_SUCCESS)
+    if (r == SC_SUCCESS && status == 0x9000)
     {
         if (!sopin)
         {
             r = transmit (context, con, cmd_user0, sizeof (cmd_user0),
-                          buf, sizeof (buf));
-            if (r == SC_SUCCESS)
+                          buf, sizeof (buf), &resp_len, &status);
+            if (r == SC_SUCCESS && status == 0x9000)
                 r = transmit (context, con, cmd_user1, sizeof (cmd_user1),
-                              buf, sizeof (buf));
+                              buf, sizeof (buf), &resp_len, &status);
         }
         else
             r = transmit (context, con, cmd_so0, sizeof (cmd_so0),
-                          buf, sizeof (buf));
+                          buf, sizeof (buf), &resp_len, &status);
     }
 
     int count = -1;
 
     if (r == SC_SUCCESS)
     {
-        DBG4 ("APDU response: %02X %02X %02X %02X",
-              buf[0], buf[1], buf[2], buf[3]);
-    
-        if (buf[0] == 0x80 && buf[1] == 0x20)
-        {
-            if (buf[2] == 0x63 && buf[3] >= 0xC0 && buf[3] <= 0xCF)
-                count = buf[3] & 0x0F;
-            else if (buf[2] == 0x69 && buf[3] == 0x83)
-                count = 0;
-        }
+        if ((status & 0xFFC0) == 0x63C0)
+            count = status & 0x000F;
+        else if (status == 0x6983)
+            count = 0;
     }
     
     disconnect (con);
