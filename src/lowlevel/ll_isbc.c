@@ -1,5 +1,6 @@
 #include "lowlevel.h"
-#include <libopensc/opensc.h>
+/*#include <opensc/opensc.h>*/
+#include "opensc.h"
 
 struct context
 {
@@ -25,7 +26,7 @@ open_context (void)
     int r = sc_establish_context (&(context->ctx), "ll_isbc");
 	if (r != SC_SUCCESS || !context->ctx)
     {
-		ERR1 ("Failed to create OpenSC context: %s", sc_strerror (r));
+	ERR1 ("Failed to create OpenSC context: %s", sc_strerror (r));
         free (context);
 		return NULL;
 	}
@@ -40,7 +41,7 @@ close_context (struct context *context)
     free (context);
 }
 
-static connected *
+static struct connected *
 connect (struct context *context, unsigned int slot_num)
 {
     struct connected *con = calloc (1, sizeof (struct connected));
@@ -57,7 +58,7 @@ connect (struct context *context, unsigned int slot_num)
         return NULL;
 	}
 
-    context->ctx->flags |= SC_CTX_FLAG_ENABLE_DEFAULT_DRIVER;
+    //context->ctx->flags |= SC_CTX_FLAG_ENABLE_DEFAULT_DRIVER;
     
     int r = sc_connect_card (con->reader, &(con->card));
     if (r != SC_SUCCESS || !con->card)
@@ -78,22 +79,22 @@ disconnect (struct connected *con)
     free (con);
 }
 
-const unsigned char cmd0[] = {0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00};
-const unsigned char cmd1[] = {0x00, 0xA4, 0x01, 0x00, 0x02, 0x8F, 0x01};
+const uint8_t cmd0[] = {0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00};
+const uint8_t cmd1[] = {0x00, 0xA4, 0x01, 0x00, 0x02, 0x8F, 0x01};
 
-const unsigned char cmd_user0[] = {0x00, 0xA4, 0x01, 0x00, 0x02, 0x7F, 0x01};
-const unsigned char cmd_user1[] = {0x00, 0x20, 0x00, 0x83};
+const uint8_t cmd_user0[] = {0x00, 0xA4, 0x01, 0x00, 0x02, 0x7F, 0x01};
+const uint8_t cmd_user1[] = {0x00, 0x20, 0x00, 0x83};
 
-const unsigned char cmd_so0[] = {0x00, 0x20, 0x00, 0x81};
+const uint8_t cmd_so0[] = {0x00, 0x20, 0x00, 0x81};
 
 static int
-transmit (static context *context, struct connected *con,
-          unsigned char *apdu_buf, size_t apdu_len,
-          u8 *reply_buf, size_t reply_len)
+transmit (struct context *context, struct connected *con,
+          const uint8_t *apdu_buf, size_t apdu_len,
+          uint8_t *reply_buf, size_t reply_len)
 {
     sc_apdu_t apdu;
     
-    int r = sc_bytes2apdu (context->ctx, apde_buf, apdu_len, &apdu);
+    int r = sc_bytes2apdu (context->ctx, apdu_buf, apdu_len, &apdu);
     if (r != SC_SUCCESS) return -1;
 
     apdu.resp = reply_buf;
@@ -107,7 +108,7 @@ transmit (static context *context, struct connected *con,
 static int
 pin_count (void *_context, unsigned int slot_num, int sopin)
 {
-    u8 buf[0xffff];
+    uint8_t buf[0xffff];
     
     if (!_context) return -1;
     struct context *context = (struct context *) _context;
@@ -149,10 +150,12 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
               buf[0], buf[1], buf[2], buf[3]);
     
         if (buf[0] == 0x80 && buf[1] == 0x20)
+        {
             if (buf[2] == 0x63 && buf[3] >= 0xC0 && buf[3] <= 0xCF)
                 count = buf[3] & 0x0F;
             else if (buf[2] == 0x69 && buf[3] == 0x83)
                 count = 0;
+        }
     }
     
     disconnect (con);
@@ -164,7 +167,7 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
 static void
 deinit (void *_context)
 {
-    if (!_context) return -1;
+    if (!_context) return;
     struct context *context = (struct context *) _context;
     close_context (context);
 }
