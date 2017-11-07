@@ -250,6 +250,22 @@ AC_FUNC_STAT
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([memset strdup strerror strndup daemon])
 
+# Add argument for using OpenSC
+AC_ARG_WITH(opensc,
+  AS_HELP_STRING([--with-opensc],[use opensc (default=yes)]))
+if test "$with_opensc" = "no" -o "$with_opensc" = "false"
+then
+  with_opensc=no
+else
+  AC_CHECK_LIB( opensc, sc_establish_context,
+	[
+	with_opensc=yes
+	],[
+	AC_MSG_WARN([Cannot find OpenSC libraries. OpenSC support disabled])
+	with_opensc=no
+	])
+fi
+AM_CONDITIONAL(HAVE_OPENSC, test x$with_opensc = xyes)
 
 AC_CONFIG_FILES([ 
 Makefile
@@ -299,6 +315,7 @@ echo "DocBook support:     ${with_docbook}"
 echo "PC/SC support:       ${with_pcsclite}"
 echo "CURL support:        ${with_curl}"
 echo "LDAP support:        ${with_ldap}"
+echo "OpenSC support:      ${with_opensc}"
 echo "NSS support:         ${with_nss}"
 echo "OPENSSL support:     ${with_ssl}"
 echo "confdir:             ${confdir}"
