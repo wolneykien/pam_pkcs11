@@ -2,8 +2,8 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CFLAGS = -Wall -fno-strict-aliasing $(CRYPTO_CFLAGS)
-AM_CPPFLAGS = -Wall -fno-strict-aliasing $(CRYPTO_CFLAGS)
+AM_CFLAGS = -Wall -fno-strict-aliasing $(CRYPTO_CFLAGS) $(PWQUALITY_CFLAGS)
+AM_CPPFLAGS = -Wall -fno-strict-aliasing $(CRYPTO_CFLAGS) $(PWQUALITY_CFLAGS)
 
 pamdir=$(libdir)/security
 
@@ -18,7 +18,8 @@ pam_pkcs11_la_SOURCES =  pam_pkcs11.c     \
 			pam_config.c pam_config.h
 pam_pkcs11_la_LDFLAGS = -module -avoid-version -shared \
 	-export-symbols-regex '^pam_'
-pam_pkcs11_la_LIBADD = ../mappers/libmappers.la @LTLIBINTL@ $(CRYPTO_LIBS)
+pam_pkcs11_la_LIBADD = ../mappers/libmappers.la @LTLIBINTL@ $(CRYPTO_LIBS) \
+					   $(PWQUALITY_LIBS)
 
 format:
 	indent *.c *.h

@@ -98,6 +98,10 @@ static void display_config (void) {
         DBG1("force_pin_change %d",configuration.force_pin_change);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
+
+#ifdef ENABLE_PWQUALITY
+        DBG1("pwquality_config %s",configuration.pwquality_config);
+#endif
 }
 #endif
 
@@ -159,6 +163,11 @@ static void parse_config_file(void) {
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
 	configuration.reset_pin_locked =
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
+
+#ifdef ENABLE_PWQUALITY
+	configuration.pwquality_config =
+	    scconf_get_str(root, "pwquality_config", configuration.pwquality_config);
+#endif
 
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);

@@ -75,6 +75,26 @@ AC_SUBST(CURL_CFLAGS)
 AC_SUBST(CURL_LIBS)
 AM_CONDITIONAL(HAVE_CURL, test x$with_curl = xyes)
 
+# Add argument for using libpwquality
+AC_ARG_WITH(pwquality,
+  AS_HELP_STRING([--with-pwquality],[use pwquality (default=no)]))
+if test "$with_pwquality" = "yes" -o "$with_pwquality" = "true"
+then
+  AC_CHECK_LIB(pwquality, pwquality_check,
+	[
+	with_pwquality=yes
+    AC_DEFINE(ENABLE_PWQUALITY, 1, [Define to 1 if you want to use libpwquality for to check the PIN.])
+	],[
+	AC_MSG_WARN(Could not locate pwquality library. pwquality disabled)
+  	with_pwquality=no
+	])
+else
+  with_pwquality=no
+fi
+AC_SUBST(PWQUALITY_CFLAGS)
+AC_SUBST(PWQUALITY_LIBS)
+AM_CONDITIONAL(HAVE_PWQUALITY, test x$with_pwquality = xyes)
+
 # Add argument for defining configuration directory
 AC_ARG_WITH(confdir,
 AS_HELP_STRING([--with-confdir=DIR],[directory containing pam_pkcs11.conf (default /etc/pam_pkcs11)]),
