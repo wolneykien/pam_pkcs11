@@ -1442,7 +1442,8 @@ static int pam_set_pin( pam_handle_t *pamh,
 #ifdef ENABLE_PWQUALITY
     if ( configuration->pwquality_config ) {
         void *auxerror;
-        rv = pwquality_read_config( &configuration->pwq,
+        configuration->pwq = pwquality_default_settings();
+        rv = pwquality_read_config( configuration->pwq,
                                     configuration->pwquality_config,
                                     &auxerror );
         if ( rv ) {
