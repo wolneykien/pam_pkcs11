@@ -1019,10 +1019,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_AUTHINFO_UNAVAIL;
       }
 
-      const char *init_pin = pam_getenv(pamh, "INIT_PIN");
-      if (!init_pin) init_pin = pam_getenv(pamh, "PAM_RESET_AUTHTOK");
-      if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
-      
+      int init_pin = (pam_getenv(pamh, "INIT_PIN") != NULL);
+      if (!init_pin) init_pin = (pam_getenv(pamh, "PAM_RESET_AUTHTOK") != NULL);
+      if (!init_pin) init_pin = (getenv("PKCS11_INIT_PIN") != NULL);
+
       rv = get_slot_protected_authentication_path( ph );
       if ((-1 == rv) || (0 == rv)) {
           /* no CKF_PROTECTED_AUTHENTICATION_PATH */
