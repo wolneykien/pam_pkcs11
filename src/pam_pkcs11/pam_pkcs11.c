@@ -1143,6 +1143,15 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
+      if (!init_pin && configuration->reset_pin_low) {
+          rv = get_slot_user_pin_count_low(ph);
+          if (rv) {
+              if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
+              DBG("Set InitPIN mode on due to incorrect login attempts");
+              init_pin = 1;
+          }
+      }
+
       if (flags & PAM_CHANGE_EXPIRED_AUTHTOK) {
           rv = get_slot_user_pin_to_be_changed(ph);
           if (rv < 0) {
