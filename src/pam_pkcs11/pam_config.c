@@ -68,6 +68,7 @@ struct configuration_st configuration = {
 	0,			/* err_display_time */
     5,          /* pin_count_low */
     1,          /* reset_pin_low */
+    1,          /* reset_pin_locked */
     0           /* force_pin_change */
 };
 
@@ -96,6 +97,7 @@ static void display_config (void) {
         DBG1("pin_count_low %d",configuration.pin_count_low);
         DBG1("force_pin_change %d",configuration.force_pin_change);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
+        DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
 }
 #endif
 
@@ -155,6 +157,8 @@ static void parse_config_file(void) {
 	    scconf_get_int(root,"force_pin_change",configuration.force_pin_change);
 	configuration.reset_pin_low =
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
+	configuration.reset_pin_locked =
+	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
 
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
