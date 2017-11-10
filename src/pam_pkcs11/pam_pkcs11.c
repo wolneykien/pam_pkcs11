@@ -1163,16 +1163,13 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
+      int locked = 0;
       if (!init_pin) {
           rv = get_slot_user_pin_locked(ph);
           if (rv) {
               if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
               if (!_init_pin || !configuration->reset_pin_locked) {
-                  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                             _("User PIN is locked!"));
-                  sleep(configuration->err_display_time);
-                  release_pkcs11_module( ph );
-                  return PAM_AUTHINFO_UNAVAIL;
+                  locked = 1;
               } else {
                   init_pin = 1;
               }
@@ -1192,8 +1189,22 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
-      rv = pam_set_pin( pamh, ph, slot_num, configuration, NULL,
-                        init_pin != NULL );
+      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                 init_pin ?
+                   _("User PIN reset") :
+                   (locked ?
+                    _("Changing the user PIN is blocked") :
+                    _("Changing the user PIN")));
+
+      if (!locked) {
+          rv = pam_set_pin( pamh, ph, slot_num, configuration, NULL,
+                            init_pin );
+      } else {
+          pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                     _("User PIN is locked!"));
+          sleep(configuration->err_display_time);
+          rv = PAM_AUTHINFO_UNAVAIL;
+      }
 
       release_pkcs11_module( ph );
 
