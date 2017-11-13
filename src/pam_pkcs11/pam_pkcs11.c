@@ -752,7 +752,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   /* load mapper modules */
   load_mappers(configuration->ctx);
   /* load lowlevel modules */
-  struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx );
+  struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx, ph );
 
   /* find a valid and matching certificates */
   for (i = 0; i < ncert; i++) {
@@ -1293,6 +1293,10 @@ static int pam_set_pin( pam_handle_t *pamh,
                         int init_pin )
 {
     int rv;
+
+    /* load lowlevel modules */
+    struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx,
+                                                        ph );
 
     rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
     if (rv != 0) {

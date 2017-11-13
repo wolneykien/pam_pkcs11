@@ -38,8 +38,10 @@
 * Load and initialize a lowlevel module.
 * Returns descriptor on success, NULL on fail.
 */
-struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) {
-
+struct lowlevel_instance *load_llmodule( scconf_context *ctx,
+                                         const char * name,
+                                         pkcs11_handle_t *ph )
+{
 	const scconf_block *root;
 	scconf_block **blocks, *blk;
 	struct lowlevel_instance *mymodule;
@@ -82,6 +84,8 @@ struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) 
     }
 
     _DEFAULT_LOWLEVEL_INIT_MODULE(res, name, blk);
+
+    res->p11 = ph->fl;
 
     res = lowlevel_init(res);
     if (!res ) { /* init failed */
@@ -128,7 +132,9 @@ void unload_llmodule( struct lowlevel_instance *module ) {
 	return;
 }
 
-struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
+struct lowlevel_instance *load_lowlevel( scconf_context *ctx,
+                                         pkcs11_handle_t *ph )
+{
 	const scconf_block *root = scconf_find_block(ctx, NULL, "pam_pkcs11");
 	if (!root) {
 		DBG("No pam_pkcs11 block in config file");
@@ -141,7 +147,7 @@ struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
         return NULL;
 	}
     
-    struct lowlevel_instance *module = load_llmodule(ctx, name);
+    struct lowlevel_instance *module = load_llmodule(ctx, name, ph);
     if (module) {
         return module;
 	}
