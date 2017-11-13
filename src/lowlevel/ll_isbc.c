@@ -304,19 +304,31 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     free (recs);
 
     if (!initialized)
-        return PIN_NOT_INITIALIZED;    
+        return PIN_NOT_INITIALIZED;
 
-    if (sopin && so_last_changed == (time_t) 0)
-        return PIN_DEFAULT;
-    if (user_last_changed == (time_t) 0)
-        return PIN_DEFAULT;
+    DBG1 ("SO PIN last changed: %lu", so_last_changed);
+    DBG1 ("User PIN last changed: %lu", user_last_changed);
+    
+    if (sopin)
+    {
+        if (so_last_changed == (time_t) 0)
+            return PIN_DEFAULT;
+    }
+    else
+        if (user_last_changed == (time_t) 0)
+            return PIN_DEFAULT;
     
     time_t now = time (NULL);
+    DBG2 ("Current time: %lu, period: %lu", now, context->expiration_period);
     
-    if (sopin && (now - so_last_changed) > context->expiration_period)
-        return PIN_EXPIRED;
-    if (now - user_last_changed > context->expiration_period)
-        return PIN_EXPIRED;
+    if (sopin)
+    {
+        if ((now - so_last_changed) > context->expiration_period)
+            return PIN_EXPIRED;
+    }
+    else
+        if (now - user_last_changed > context->expiration_period)
+            return PIN_EXPIRED;
 
     return PIN_OK;
 }
@@ -330,6 +342,8 @@ deinit (void *_context)
 }
 
 lowlevel_module* lowlevel_module_init (lowlevel_module *module) {
+    set_debug_level (module->dbg_level);
+    
     struct context *context = open_context ();
     context->p11 = module->p11;
     context->expiration_period = (unsigned long) (scconf_get_int (module->block, "pin_expire_min", 14 * 24 * 60) * 60); // 2 weeks by default
