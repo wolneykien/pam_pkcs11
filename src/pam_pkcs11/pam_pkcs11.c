@@ -1025,14 +1025,33 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
            pam_strerror(pamh, rv));
   }
 
+  int pin_status = PIN_OK;
+  if (!pin_to_be_changed && lowlevel && lowlevel->funcs.pin_status) {
+      pins_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
+      if (pins_status < 0) {
+          ERR1("pin_status() from %s failed", lowlevel->module_name);
+          if (!configuration->quiet) {
+              pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
+                         lowlevel->module_name);
+          }
+      } else {
+          DBG1 ("PIN status: %d", pin_status);
+          pin_to_be_changed = 1;
+      }
+  } else if (pin_to_be_changed) {
+      pin_status = PIN_DEFAULT;
+  }
+
   /* unload lowlevel modules */
   unload_llmodule( lowlevel );
   /* unload mapper modules */
   unload_mappers();
 
   if (pin_to_be_changed) {
-      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 _("User PIN needs to be changed"));
+      pam_prompt (pamh, PAM_TEXT_INFO, NULL,
+                  PAM_EXPIRED ?
+                    _("User PIN has expired and needs to be changed") :
+                    _("User PIN needs to be changed"));
   }
 
   /* close pkcs #11 session */
