@@ -1337,7 +1337,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
               rv = pwquality_check( configuration->pwq, new_pass,
                                     init_pin ? NULL : old_pass,
                                     NULL, &auxerror );
-              if ( rv ) {
+              if ( rv < 0 ) {
                   const char *err_text =
                       pwquality_strerror( NULL, 0, rv, auxerror );
                   ERR1("PIN quality check failed: %s", err_text);
@@ -1350,6 +1350,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                               err_text );
                   sleep( configuration->err_display_time );
                   rv = PAM_AUTHTOK_ERR;
+              } else {
+                  rv = 0;
               }
           }
 #endif
