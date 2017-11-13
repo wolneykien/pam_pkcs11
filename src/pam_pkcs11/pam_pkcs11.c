@@ -1052,7 +1052,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           }
       } else {
           DBG1 ("PIN status: %d", pin_status);
-          pin_to_be_changed = 1;
+          pin_to_be_changed = (pin_status != PIN_OK);
       }
   } else if (pin_to_be_changed) {
       pin_status = PIN_DEFAULT;
