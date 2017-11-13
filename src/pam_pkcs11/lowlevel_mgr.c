@@ -31,8 +31,50 @@
 #include "../scconf/scconf.h"
 #include "../common/debug.h"
 #include "../common/error.h"
-#include "../lowlevel/lowlevel.h"
+#include "../common/pkcs11_lib.h"
 #include "lowlevel_mgr.h"
+#include "../lowlevel/lowlevel.h"
+
+static void
+apply_p11 (struct lowlevel_instance *module)
+{
+    if (!module || !module->module_data) return;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    if (module->ph && llm->set_session) {
+        llm->set_session (module->ph->session);
+    }
+}
+
+static int
+ll_pin_count (void *context, unsigned int slot_num, int sopin)
+{
+    struct lowlevel_instance *module = (struct lowlevel_instance *) context;
+    if (!module || !module->module_data) return -1;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    apply_p11 (module);
+    if (llm->funcs.pin_count) {
+        return llm->funcs.pin_count (llm->context, slot_num, sopin);
+    } else {
+        return -1;
+    }
+}
+
+static int
+ll_pin_status (void *context, unsigned int slot_num, int sopin)
+{
+    struct lowlevel_instance *module = (struct lowlevel_instance *) context;
+    if (!module || !module->module_data) return -1;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    apply_p11 (module);
+    if (llm->funcs.pin_status) {
+        return llm->funcs.pin_status (llm->context, slot_num, sopin);
+    } else {
+        return -1;
+    }
+}
 
 /*
 * Load and initialize a lowlevel module.
@@ -105,6 +147,13 @@ struct lowlevel_instance *load_llmodule( scconf_context *ctx,
 	mymodule->module_name = name;
 	mymodule->module_path = libname;
 	mymodule->module_data = res;
+	mymodule->ph = ph;
+
+    mymodule->funcs.context = mymodule;
+    if (mymodule->res.funcs->pin_status)
+        mymodule->funcs.pin_status = ll_pin_status;
+    if (mymodule->res.funcs->pin_count)
+        mymodule->funcs.pin_count = ll_pin_count;
 
 	return mymodule;
 }
