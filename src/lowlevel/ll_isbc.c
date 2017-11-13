@@ -207,7 +207,7 @@ struct jorunal_record
 };
 
 static int
-pin_needs_change (void *_context, unsigned int slot_num, int sopin)
+pin_status (void *_context, unsigned int slot_num, int sopin)
 {
     if (!_context) return -1;
     struct context *context = (struct context *) _context;
@@ -222,6 +222,17 @@ pin_needs_change (void *_context, unsigned int slot_num, int sopin)
         ERR ("Needs PKCS#11 session. Please, use set_session() to set it");
         return -1;
     }
+
+    CK_INFO_PTR pInfo;
+    if (p11->C_GetInfo (&pInfo) != CKR_OK) {
+		ERR ("Unable to get information about the PKCS#11 library");
+        return -1;
+	}
+
+    DBG ("Using version %d.%d implementing Cryptoki %d.%d by %32s",
+         pInfo->libraryVersion->major, pInfo->libraryVersion->minor,
+         pInfo->cryptokiVersion->major, pInfo->cryptokiVersion->minor,
+         pInfo->manufacturerID);
 
     CK_ULONG len = 0L;
 	if (p11->C_ISBC_ScribbleRead (context->session, 0, NULL, &len) != CKR_OK) {
@@ -305,6 +316,7 @@ deinit (void *_context)
 
 lowlevel_module* lowlevel_module_init (lowlevel_module *module) {
     module->pin_count = pin_count;
+    module->pin_status = pin_status;
     module->context = open_context ();
     module->context.p11 = module->p11;
     module->deinit = deinit;
