@@ -31,9 +31,9 @@
 #include "../scconf/scconf.h"
 #include "../common/debug.h"
 #include "../common/error.h"
-#include "../common/pkcs11_lib.h"
 #include "lowlevel_mgr.h"
 #include "../lowlevel/lowlevel.h"
+#include "../common/pkcs11_lib_cryptoki.h"
 
 static void
 apply_p11 (struct lowlevel_instance *module)
@@ -42,7 +42,7 @@ apply_p11 (struct lowlevel_instance *module)
     lowlevel_module *llm = (lowlevel_module *) module->module_data;
 
     if (module->ph && llm->set_session) {
-        llm->set_session (module->ph->session);
+        llm->set_session (llm->context, pkcs11_get_session (module->ph));
     }
 }
 
@@ -127,7 +127,7 @@ struct lowlevel_instance *load_llmodule( scconf_context *ctx,
 
     _DEFAULT_LOWLEVEL_INIT_MODULE(res, name, blk);
 
-    res->p11 = ph->fl;
+    res->p11 = pkcs11_get_funcs (ph);
 
     res = lowlevel_init(res);
     if (!res ) { /* init failed */
@@ -150,9 +150,9 @@ struct lowlevel_instance *load_llmodule( scconf_context *ctx,
 	mymodule->ph = ph;
 
     mymodule->funcs.context = mymodule;
-    if (mymodule->res.funcs->pin_status)
+    if (res->funcs.pin_status)
         mymodule->funcs.pin_status = ll_pin_status;
-    if (mymodule->res.funcs->pin_count)
+    if (res->funcs.pin_count)
         mymodule->funcs.pin_count = ll_pin_count;
 
 	return mymodule;
@@ -160,10 +160,11 @@ struct lowlevel_instance *load_llmodule( scconf_context *ctx,
 
 void unload_llmodule( struct lowlevel_instance *module ) {
 	if (!module) return;
-
-	if ( module->module_data && module->module_data->deinit ) {
+    
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+	if ( llm && llm->deinit ) {
         DBG1("Calling %s->deinit", module->module_name);
-		(*module->module_data->deinit)(module->module_data->context);
+		(*llm->deinit)(llm->context);
 	}
 
     free(module->module_data);

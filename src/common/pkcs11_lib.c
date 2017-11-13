@@ -922,7 +922,7 @@ SECU_Strerror(PRErrorCode errNum)
 #include <openssl/x509.h>
 #include <openssl/err.h>
 
-#include "rsaref/pkcs11.h"
+#include "pkcs11_lib_cryptoki.h"
 
 
 struct cert_object_str {
@@ -1869,4 +1869,17 @@ int get_random_value(unsigned char *data, int length)
       data[1], data[2], data[length - 1]);
   return 0;
 }
+
+CK_FUNCTION_LIST_PTR
+pkcs11_get_funcs (pkcs11_handle_t *h)
+{
+    return h->fl;
+}
+
+CK_SESSION_HANDLE
+pkcs11_get_session (pkcs11_handle_t *h)
+{
+    return h->session;
+}
+
 #endif /* HAVE_NSS */
