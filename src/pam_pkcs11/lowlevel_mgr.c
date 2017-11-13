@@ -31,9 +31,9 @@
 #include "../scconf/scconf.h"
 #include "../common/debug.h"
 #include "../common/error.h"
+#include "../common/pkcs11_lib_cryptoki.h"
 #include "lowlevel_mgr.h"
 #include "../lowlevel/lowlevel.h"
-#include "../common/pkcs11_lib_cryptoki.h"
 
 static void
 apply_p11 (struct lowlevel_instance *module)
