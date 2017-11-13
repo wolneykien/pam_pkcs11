@@ -32,6 +32,9 @@
 #include "../scconf/scconf.h"
 #include "../common/debug.h"
 
+#include "lowlevel_api.h"
+
+
 /**
 * Structure to be filled on lowlevel module initialization
 */
@@ -43,11 +46,16 @@ typedef struct lowlevel_module_st {
     /** debug level to set before call entry points */
     int  dbg_level; 
     /** pointer to lowlevel local data */
-    void *context; 
-    /** PIN-code input attempts */
-    int (*pin_count)(void *context, unsigned int slot_num, int sopin);
+    void *context;
+    /** PKCS#11 function list (relies on the lowlevel
+    module implementation to include the proper version
+    of pkcs11.h) */
+    CK_FUNCTION_LIST_PTR p11;
+    /** Used to set the current PKCS#11 session */
+    void (*set_session) (void *context, CK_SESSION_HANDLE session);
     /** module de-initialization */
     void (*deinit)(void *context);
+    lowlevel_funcs funcs;
 } lowlevel_module;
 
 #define _DEFAULT_LOWLEVEL_INIT_MODULE(module, name, blk)           \

@@ -400,8 +400,8 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
             if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
 
             int pins_left = -1;
-            if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
-                pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, slot_num, 0);
+            if ( lowlevel && lowlevel->funcs.pin_count) {
+                pins_left = (*lowlevel->funcs.pin_count)(lowlevel->funcs.context, slot_num, 0);
                 if (pins_left >= 0) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                                (pins_left < configuration->pin_count_low) ?

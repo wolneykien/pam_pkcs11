@@ -27,7 +27,7 @@
 #endif
 
 #include "../scconf/scconf.h"
-#include "../lowlevel/lowlevel.h"
+#include "../lowlevel/lowlevel_api.h"
 
 /*
 * lowlevel module descriptor
@@ -36,7 +36,9 @@ struct lowlevel_instance {
     void *module_handler;
     const char *module_name;
     const char *module_path;
-    lowlevel_module *module_data;
+    pkcs11_handle_t *ph;
+    void *module_data;
+    lowlevel_funcs funcs;
 };
 
 /*
