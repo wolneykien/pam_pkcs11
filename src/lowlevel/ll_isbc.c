@@ -1,6 +1,10 @@
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 /*#include <opensc/opensc.h>*/
 #include "opensc.h"
-#include "isbc/pkcs11.h"
+#include "isbc/cryptoki.h"
 #include <time.h>
 
 #include "lowlevel.h"
@@ -10,6 +14,7 @@ struct context
     sc_context_t *ctx;
     CK_FUNCTION_LIST_PTR p11;
     CK_SESSION_HANDLE session;
+    unsigned long expiration_period;
 };
 
 struct connected
@@ -182,7 +187,7 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
 }
 
 static void
-set_session (void *context, CK_SESSION_HANDLE session)
+set_session (void *_context, CK_SESSION_HANDLE session)
 {
     if (!_context) return;
     struct context *context = (struct context *) _context;
@@ -223,19 +228,19 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         return -1;
     }
 
-    CK_INFO_PTR pInfo;
-    if (p11->C_GetInfo (&pInfo) != CKR_OK) {
+    CK_INFO pInfo;
+    if (context->p11->C_GetInfo (&pInfo) != CKR_OK) {
 		ERR ("Unable to get information about the PKCS#11 library");
         return -1;
 	}
 
-    DBG ("Using version %d.%d implementing Cryptoki %d.%d by %32s",
-         pInfo->libraryVersion->major, pInfo->libraryVersion->minor,
-         pInfo->cryptokiVersion->major, pInfo->cryptokiVersion->minor,
-         pInfo->manufacturerID);
+    DBG5 ("Using version %d.%d implementing Cryptoki %d.%d by %32s",
+          pInfo.libraryVersion.major, pInfo.libraryVersion.minor,
+          pInfo.cryptokiVersion.major, pInfo.cryptokiVersion.minor,
+          pInfo.manufacturerID);
 
     CK_ULONG len = 0L;
-	if (p11->C_ISBC_ScribbleRead (context->session, 0, NULL, &len) != CKR_OK) {
+	if (context->p11->C_ISBC_ScribbleRead (context->session, 0, NULL, &len) != CKR_OK) {
 		ERR ("Journal reading error");
         return -1;
 	}
@@ -246,31 +251,33 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         return PIN_NOT_INITIALIZED;
 	}
 
-    jorunal_record *recs = calloc (len / sizeof (jorunal_record), sizeof (jorunal_record));
+    struct jorunal_record *recs = calloc (len / sizeof (struct jorunal_record),
+                                          sizeof (struct jorunal_record));
     if (!recs)
     {
         ERR ("Unable to allocate memory for the journal!");
         return -1;
     }
     
-	if (p11->C_ISBC_ScribbleRead (context->session, 0, recs, &len) != CKR_OK)
+	if (context->p11->C_ISBC_ScribbleRead (context->session, 0,
+                                           (CK_BYTE_PTR) recs, &len) != CKR_OK)
 	{
 		ERR ("Journal reading error (2)");
         return -1;
 	}
 
-    int initizlized = 0;
+    int initialized = 0;
     time_t user_last_changed = (time_t) 0;
     time_t so_last_changed = (time_t) 0;
     
-    jorunal_record *rec = recs;
-	while (rec < (recs + len / sizeof (jorunal_record)))
+    struct jorunal_record *rec = recs;
+	while (rec < (recs + len / sizeof (struct jorunal_record)))
 	{
         switch (rec->event_type)
         {
         case EVENT_INITIAL:
         case EVENT_INIT_TOKEN:
-            initizlized = 1;
+            initialized = 1;
             break;
         case EVENT_USER_PIN_CHANGED:
         case EVENT_USER_PIN_CHANGED | EVENT_FLAG_MINIDRIVE:
@@ -298,12 +305,14 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     if (user_last_changed == (time_t) 0)
         return PIN_DEFAULT;
     
-    time_t now = time ();
+    time_t now = time (NULL);
     
     if (sopin && (now - so_last_changed) > context->expiration_period)
         return PIN_EXPIRED;
     if (now - user_last_changed > context->expiration_period)
         return PIN_EXPIRED;
+
+    return PIN_OK;
 }
 
 static void
@@ -315,10 +324,15 @@ deinit (void *_context)
 }
 
 lowlevel_module* lowlevel_module_init (lowlevel_module *module) {
+    struct context *context = open_context ();
+    context->p11 = module->p11;
+    context->expiration_period = (unsigned long) (scconf_get_int (module->block, "pin_expire_min", 14 * 24 * 60) * 60); // 2 weeks by default
+    
     module->pin_count = pin_count;
     module->pin_status = pin_status;
-    module->context = open_context ();
-    module->context.p11 = module->p11;
+    module->set_session = set_session;
+    module->context = context;
     module->deinit = deinit;
+    
     return module;
 }

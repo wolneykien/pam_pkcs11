@@ -18,6 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <stdio.h>
+
 typedef struct sc_apdu {
 	int cse;			/* APDU case */
 	unsigned char cla, ins, p1, p2;	/* CLA, INS, P1 and P2 bytes */
