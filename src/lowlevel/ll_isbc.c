@@ -6,6 +6,7 @@
 #include "opensc.h"
 #include "isbc/cryptoki.h"
 #include <time.h>
+#include <arpa/inet.h>
 
 #include "lowlevel.h"
 
@@ -60,7 +61,7 @@ close_context (struct context *context)
 }
 
 static struct connected *
-connect (struct context *context, unsigned int slot_num)
+connect_card (struct context *context, unsigned int slot_num)
 {
     struct connected *con = calloc (1, sizeof (struct connected));
     if (!con)
@@ -88,7 +89,7 @@ connect (struct context *context, unsigned int slot_num)
 }
 
 static void
-disconnect (struct connected *con)
+disconnect_card (struct connected *con)
 {
     if (!con) return;
     sc_disconnect_card (con->card);
@@ -139,7 +140,7 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
     if (!_context) return -1;
     struct context *context = (struct context *) _context;
     
-    struct connected *con = connect (context, slot_num);
+    struct connected *con = connect_card (context, slot_num);
     if (!con) return -1;
 
     DBG ("Reset the card");
@@ -180,7 +181,7 @@ pin_count (void *_context, unsigned int slot_num, int sopin)
             count = 0;
     }
     
-    disconnect (con);
+    disconnect_card (con);
     
     if (r != SC_SUCCESS) return -1;
     return count;
@@ -204,12 +205,22 @@ set_session (void *_context, CK_SESSION_HANDLE session)
 #define EVENT_FLAG_UNKNOWN     0x40
 #define EVENT_FLAG_MINIDRIVE   0x80
 
-struct jorunal_record
+#define ESMART_TIME_BASE 1451606400 /* Jan 01 00:00:00 UTC 2016 */
+
+#pragma pack(push, 1)
+struct journal_record
 {
     uint32_t timestamp;
     uint8_t  event_type;
     uint8_t  _reserved_;
 };
+#pragma pack(pop)
+
+static void
+read_time (struct journal_record *rec)
+{
+    rec->timestamp = ntohl (rec->timestamp);
+}
 
 static int
 pin_status (void *_context, unsigned int slot_num, int sopin)
@@ -258,7 +269,7 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         return PIN_NOT_INITIALIZED;
 	}
 
-    struct jorunal_record *recs = malloc (len);
+    struct journal_record *recs = malloc (len);
     if (!recs)
     {
         ERR ("Unable to allocate memory for the journal!");
@@ -273,12 +284,13 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
 	}
 
     int initialized = 0;
-    time_t user_last_changed = (time_t) 0;
-    time_t so_last_changed = (time_t) 0;
+    uint32_t user_last_changed = 0;
+    uint32_t so_last_changed = 0;
     
-    struct jorunal_record *rec = recs;
-	while (rec < (recs + len / sizeof (struct jorunal_record)))
+    struct journal_record *rec = recs;
+	while (rec < (recs + len / sizeof (struct journal_record)))
 	{
+        read_time (rec);
         switch (rec->event_type)
         {
         case EVENT_INITIAL:
@@ -287,15 +299,13 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
             break;
         case EVENT_USER_PIN_CHANGED:
         case EVENT_USER_PIN_CHANGED | EVENT_FLAG_MINIDRIVE:
-            // FIXME: host byte order
-            if ((time_t) rec->timestamp > user_last_changed)
-                user_last_changed = (time_t) rec->timestamp;
+            if (rec->timestamp > user_last_changed)
+                user_last_changed = rec->timestamp;
             break;
         case EVENT_SO_PIN_CHANGED:
         case EVENT_SO_PIN_CHANGED | EVENT_FLAG_MINIDRIVE:
-            // FIXME: host byte order
-            if ((time_t) rec->timestamp > so_last_changed)
-                so_last_changed = (time_t) rec->timestamp;
+            if (rec->timestamp > so_last_changed)
+                so_last_changed = rec->timestamp;
             break;
         }
         rec++;
@@ -303,11 +313,10 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
 
     free (recs);
 
+    DBG1 ("Initialized: %d", initialized);
+
     if (!initialized)
         return PIN_NOT_INITIALIZED;
-
-    DBG1 ("SO PIN last changed: %lu", so_last_changed);
-    DBG1 ("User PIN last changed: %lu", user_last_changed);
     
     if (sopin)
     {
@@ -317,8 +326,16 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     else
         if (user_last_changed == (time_t) 0)
             return PIN_DEFAULT;
+
+    so_last_changed = so_last_changed + ESMART_TIME_BASE;
+    user_last_changed = user_last_changed + ESMART_TIME_BASE;
+    
+    DBG1 ("SO PIN last changed: %lu", so_last_changed);
+    DBG1 ("User PIN last changed: %lu", user_last_changed);
     
     time_t now = time (NULL);
+    struct tm tm; gmtime_r (&now, &tm);
+    now = mktime (&tm);
     DBG2 ("Current time: %lu, period: %lu", now, context->expiration_period);
     
     if (sopin)
@@ -327,7 +344,7 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
             return PIN_EXPIRED;
     }
     else
-        if (now - user_last_changed > context->expiration_period)
+        if ((now - user_last_changed) > context->expiration_period)
             return PIN_EXPIRED;
 
     return PIN_OK;
