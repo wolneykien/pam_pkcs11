@@ -228,6 +228,13 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         return -1;
     }
 
+    /*
+      {cryptokiVersion = {major = 2 '\002', minor = 40 '('}, 
+      manufacturerID = "ISBC", ' ' <repeats 28 times>, flags = 0, 
+      libraryDescription = ' ' <repeats 32 times>, libraryVersion = {
+      major = 1 '\001', minor = 0 '\000'}}
+    */
+    
     CK_INFO pInfo;
     if (context->p11->C_GetInfo (&pInfo) != CKR_OK) {
 		ERR ("Unable to get information about the PKCS#11 library");
@@ -251,8 +258,7 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         return PIN_NOT_INITIALIZED;
 	}
 
-    struct jorunal_record *recs = calloc (len / sizeof (struct jorunal_record),
-                                          sizeof (struct jorunal_record));
+    struct jorunal_record *recs = malloc (len);
     if (!recs)
     {
         ERR ("Unable to allocate memory for the journal!");
