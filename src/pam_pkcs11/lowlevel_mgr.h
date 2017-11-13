@@ -28,6 +28,7 @@
 
 #include "../scconf/scconf.h"
 #include "../lowlevel/lowlevel_api.h"
+#include "../common/pkcs11_lib.h"
 
 /*
 * lowlevel module descriptor
