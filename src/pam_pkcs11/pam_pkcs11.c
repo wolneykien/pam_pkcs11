@@ -441,8 +441,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
 		sleep(configuration->err_display_time);
 	}
-    release_pkcs11_module(ph);
-    return pkcs11_pam_fail;
+    goto auth_failed_nopw;
   } else if (rv) {
     /* get password */
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
@@ -468,10 +467,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
 				sleep(configuration->err_display_time);
 			}
-			release_pkcs11_module(ph);
 			pam_syslog(pamh, LOG_ERR,
 					"pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
-			return pkcs11_pam_fail;
+			goto auth_failed_nopw;
 		}
 #ifdef DEBUG_SHOW_PASSWORD
 		DBG1("password = [%s]", password);
@@ -479,16 +477,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
 		/* check password length */
 		if (!configuration->nullok && strlen(password) == 0) {
-			release_pkcs11_module(ph);
-			memset(password, 0, strlen(password));
-			free(password);
 			pam_syslog(pamh, LOG_ERR,
 					"password length is zero but the 'nullok' argument was not defined.");
 			if (!configuration->quiet) {
 				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
 				sleep(configuration->err_display_time);
 			}
-			return PAM_AUTH_ERR;
+			goto auth_failed_wrongpw;
 		}
 	}
 	else
@@ -694,15 +689,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       free(signature);
     }
     if (rv != 0) {
-      close_pkcs11_session(ph);
-      release_pkcs11_module(ph);
       ERR1("verify_signature() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
 			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2342: Verifying signature failed"));
 			sleep(configuration->err_display_time);
 		}
-      return PAM_AUTH_ERR;
+      goto auth_failed_wrongpw;
     }
 
   } else {
@@ -776,14 +769,19 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   /* close pkcs #11 session */
   rv = close_pkcs11_session(ph);
   if (rv != 0) {
-    release_pkcs11_module(ph);
     ERR1("close_pkcs11_session() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
 			pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
 			sleep(configuration->err_display_time);
 		}
-    return pkcs11_pam_fail;
+	goto auth_failed_wrongpw;
+  }
+
+  if ( password ) {
+      memset( password, 0, strlen(password) );
+      free( password );
+      password = NULL;
   }
 
   /* release pkcs #11 module */
@@ -793,20 +791,24 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   DBG("authentication succeeded");
   return PAM_SUCCESS;
 
-    /* quick and dirty fail exit point */
-    memset(password, 0, strlen(password));
-    free(password); /* erase and free in-memory password data */
-
 auth_failed_nopw:
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
+    if ( password ) {
+        memset( password, 0, strlen(password) );
+        free( password );
+    }
     return pkcs11_pam_fail;
 
 auth_failed_wrongpw:
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
+    if ( password ) {
+        memset( password, 0, strlen(password) );
+        free( password );
+    }
     return PAM_AUTH_ERR;
 }
 
