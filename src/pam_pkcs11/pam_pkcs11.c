@@ -487,8 +487,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   } else if (rv) {
     /* get password */
-	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-        _(configuration->prompts.welcome), get_slot_tokenlabel(ph));
+    if (!is_a_screen_saver)
+        pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                   _(configuration->prompts.welcome), get_slot_tokenlabel(ph));
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
