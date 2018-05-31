@@ -367,6 +367,9 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     return rv;
 }
 
+static int pam_do_login( pkcs11_handle_t *ph, const char *pass,
+                         int init_pin );
+
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   int i, rv;
@@ -639,22 +642,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* call pkcs#11 login to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pkcs11_login(ph, password);
+    rv = pam_do_login( ph, password, 0 );
     /* erase and free in-memory password data asap */
 	if (password)
 	{
 		memset(password, 0, strlen(password));
 		free(password);
 	}
-    if (rv != 0) {
-      ERR1("open_pkcs11_login() failed: %s", get_error());
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
-			sleep(configuration->err_display_time);
-		}
-      goto auth_failed_nopw;
-    }
+    if (rv != 0) goto auth_failed_wrongpw;
   }
 
   cert_list = get_certificate_list(ph, &ncert);
@@ -977,6 +972,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       int rv; unsigned int slot_num;
       struct configuration_st *configuration;
       pkcs11_handle_t *ph;
+      int logged_in = 0;
       
       if (flags & PAM_PRELIM_CHECK) {
           return PAM_SUCCESS;
@@ -1052,6 +1048,19 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
               return PAM_AUTHTOK_RECOVERY_ERR;
           }
 
+		if ( configuration->check_pin_early ) {
+			rv = pam_do_login( ph, old_pass, init_pin );
+			if ( rv == 0 ) {
+				logged_in = 1;
+			} else {
+				if (clean_old_pass && old_pass) {
+					memset( old_pass, 0, strlen(old_pass) );
+					free( old_pass );
+				}
+				return PAM_AUTHTOK_RECOVERY_ERR;
+			}
+		}
+
           /* New PIN */
           snprintf(password_prompt, sizeof(password_prompt),
                    _("New %s PIN: "), _(configuration->token_type));
@@ -1120,18 +1129,18 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           new_pass = NULL;
       }
 
-      if (init_pin) {
-          rv = pkcs11_login_so( ph, old_pass );
-          if ( rv == 0 ) {
+      if ( !logged_in ) {
+          rv = pam_do_login( ph, old_pass, init_pin );
+          if ( rv == 0 ) logged_in = 1;
+      }
+      if ( rv == 0 ) {
+          if (init_pin) {
               rv = pkcs11_initpin( ph, new_pass );
-          }
-      } else {
-          rv = pkcs11_login( ph, old_pass );
-          if ( rv == 0 ) {
+          } else {
               rv = pkcs11_setpin( ph, old_pass, new_pass );
           }
       }
-      
+
       pkcs11_close_session( pamh, configuration, ph );
       release_pkcs11_module( ph );
 
@@ -1146,7 +1155,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 
       if ( rv == 0 ) {
           return PAM_SUCCESS;
-      } else {
+      } else if ( logged_in ) {
           ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
           if (!configuration->quiet) {
               pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
@@ -1157,7 +1166,37 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
           return PAM_AUTHTOK_ERR;
       }
+
+      return PAM_AUTHTOK_ERR;
   }
+}
+
+static
+int pam_do_login( pkcs11_handle_t *ph, const char *pass,
+				  int init_pin )
+{
+	int rv;
+
+	if ( init_pin ) {
+        rv = pkcs11_login_so( ph, pass );
+    } else {
+        rv = pkcs11_login( ph, pass );
+    }
+
+	if ( rv != 0 ) {
+		ERR2( "%sLogin failed: %s", init_pin ? "SO " : "",
+			  get_error() );
+		if ( !configuration->quiet ) {
+			pam_syslog( pamh, LOG_ERR, "%sLogin failed: %s",
+						init_pin ? "SO " : "",
+						get_error() );
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2320: Wrong smartcard PIN"));
+            sleep(configuration->err_display_time);
+        }
+	}
+
+	return rv;
 }
 
 #ifdef PAM_STATIC
