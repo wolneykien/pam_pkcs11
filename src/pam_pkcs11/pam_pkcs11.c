@@ -968,8 +968,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
   
   {
-      char *old_pass;
-      char *new_pass;
+      char *old_pass = NULL;
+      char *new_pass = NULL;
+      char *confirm = NULL;
       int rv; unsigned int slot_num;
       struct configuration_st *configuration;
       pkcs11_handle_t *ph;
@@ -1027,7 +1028,6 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       if ((-1 == rv) || (0 == rv)) {
           /* no CKF_PROTECTED_AUTHENTICATION_PATH */
           char password_prompt[128];
-          char *confirm;
 
           /* Old PIN */
           snprintf(password_prompt, sizeof(password_prompt),
@@ -1038,18 +1038,14 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 
           if (rv != PAM_SUCCESS) {
               _get_pwd_error( pamh, configuration, rv );
-              release_pkcs11_module(ph);
-              return PAM_AUTHTOK_RECOVERY_ERR;
+              rv = PAM_AUTHTOK_RECOVERY_ERR;
+              goto cleanup;
           }
 
           rv = check_pwd( pamh, configuration, old_pass );
           if ( rv != 0 ) {
-              release_pkcs11_module(ph);
-              if ( old_pass ) {
-                  cleanse( old_pass, strlen(old_pass) );
-                  free(old_pass);
-              }
-              return PAM_AUTHTOK_RECOVERY_ERR;
+              rv = PAM_AUTHTOK_RECOVERY_ERR;
+              goto cleanup;
           }
 
 		if ( configuration->check_pin_early ) {
@@ -1058,11 +1054,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 			if ( rv == 0 ) {
 				logged_in = 1;
 			} else {
-				if (clean_old_pass && old_pass) {
-					cleanse( old_pass, strlen(old_pass) );
-					free( old_pass );
-				}
-				return PAM_AUTHTOK_RECOVERY_ERR;
+				rv = PAM_AUTHTOK_RECOVERY_ERR;
+				goto cleanup;
 			}
 		}
 
@@ -1074,21 +1067,15 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           
           if (rv != PAM_SUCCESS) {
               _get_pwd_error( pamh, configuration, rv );
-              release_pkcs11_module(ph);
-              return PAM_AUTHTOK_ERR;
+			  rv = PAM_AUTHTOK_ERR;
+			  goto cleanup;
           }
 
-          rv = check_pwd( pamh, configuration, new_pass );
-          if ( rv != 0 ) {
-              release_pkcs11_module(ph);
-              cleanse( old_pass, strlen(old_pass) );
-              free( old_pass );
-              if ( new_pass ) {
-                  cleanse( new_pass, strlen(new_pass) );
-                  free( new_pass );
-              }
-              return PAM_AUTHTOK_ERR;
-          }
+        rv = check_pwd( pamh, configuration, new_pass );
+        if ( rv != 0 ) {
+			rv = PAM_AUTHTOK_ERR;
+			goto cleanup;
+        }
 
           /* Confirm new PIN */
           snprintf(password_prompt, sizeof(password_prompt),
@@ -1098,12 +1085,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           
           if (rv != PAM_SUCCESS) {
               _get_pwd_error( pamh, configuration, rv );
-              release_pkcs11_module(ph);
-              cleanse( old_pass, strlen(old_pass) );
-              free( old_pass );
-              cleanse( new_pass, strlen(new_pass) );
-              free( new_pass );
-              return PAM_AUTHTOK_ERR;
+			  rv = PAM_AUTHTOK_ERR;
+			  goto cleanup;
           }
 
           if ( strcmp(new_pass, confirm) != 0 ) {
@@ -1114,24 +1097,13 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                              _("Confirm PIN mismatch"));
                   sleep(configuration->err_display_time);
               }
-              release_pkcs11_module(ph);
-              cleanse( old_pass, strlen(old_pass) );              
-              free( old_pass );
-              cleanse( new_pass, strlen(new_pass) );
-              free( new_pass );
-              cleanse( confirm, strlen(confirm) );
-              free( confirm );
-              return PAM_AUTHTOK_ERR;
-          } else {
-              cleanse( confirm, strlen(confirm) );
-              free( confirm );
+              rv = PAM_AUTHTOK_ERR;
+              goto cleanup;
           }
       } else {
           pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                      _("Now use the pinpad to change your %s PIN"),
                      _(configuration->token_type));
-          old_pass = NULL;
-          new_pass = NULL;
       }
 
       if ( !logged_in ) {
@@ -1147,33 +1119,40 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
-      pkcs11_close_session( pamh, configuration, ph );
-      release_pkcs11_module( ph );
-
-      if ( old_pass ) {
-          cleanse( old_pass, strlen(old_pass) );              
-          free( old_pass );
-      }
-      if ( new_pass ) {
-          cleanse( new_pass, strlen(new_pass) );
-          free( new_pass );
-      }
-
       if ( rv == 0 ) {
-          return PAM_SUCCESS;
-      } else if ( logged_in ) {
-          ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
-          if (!configuration->quiet) {
-              pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
-                         init_pin ? "Init" : "Set");
-              pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                         _("Error: Unable to set new PIN"));
-              sleep(configuration->err_display_time);
+          rv = PAM_SUCCESS;
+      } else {
+          if ( logged_in ) {
+              ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
+              if (!configuration->quiet) {
+                  pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
+                             init_pin ? "Init" : "Set");
+                  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                             _("Error: Unable to set new PIN"));
+                  sleep(configuration->err_display_time);
+              }
           }
-          return PAM_AUTHTOK_ERR;
+          rv = PAM_AUTHTOK_ERR;
       }
 
-      return PAM_AUTHTOK_ERR;
+ cleanup:
+    pkcs11_close_session( pamh, configuration, ph );
+    release_pkcs11_module( ph );
+
+	if ( old_pass ) {
+        cleanse( old_pass, strlen(old_pass) );
+        free( old_pass );
+    }
+    if ( new_pass ) {
+        cleanse( new_pass, strlen(new_pass) );
+        free( new_pass );
+    }
+    if ( confirm ) {
+        cleanse( confirm, strlen(confirm) );
+        free( confirm );
+    }
+
+	return rv;
   }
 }
 
