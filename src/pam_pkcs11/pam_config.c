@@ -66,7 +66,7 @@ struct configuration_st configuration = {
 	NULL,				/* char *username */
 	0,                               /* int quiet */
 	0,			/* err_display_time */
-    0           /* change_pin_early */
+    0           /* check_pin_early */
 };
 
 #ifdef DEBUG_CONFIG
@@ -91,7 +91,7 @@ static void display_config (void) {
         DBG1("signature_policy %d",configuration.policy.signature_policy);
         DBG1("ocsp_policy %d",configuration.policy.ocsp_policy);
 		DBG1("err_display_time %d", configuration.err_display_time);
-        DBG1("change_pin_early %d", configuration.change_pin_early);
+        DBG1("check_pin_early %d", configuration.check_pin_early);
 }
 #endif
 
@@ -145,8 +145,8 @@ static void parse_config_file(void) {
 	    scconf_get_bool(root,"wait_for_card",configuration.wait_for_card);
 	configuration.pkcs11_module = ( char * )
 	    scconf_get_str(root,"use_pkcs11_module",configuration.pkcs11_module);
-    configuration.change_pin_early =
-        scconf_get_bool(root, "change_pin_early", configuration.change_pin_early);
+    configuration.check_pin_early =
+        scconf_get_bool(root, "check_pin_early", configuration.check_pin_early);
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {

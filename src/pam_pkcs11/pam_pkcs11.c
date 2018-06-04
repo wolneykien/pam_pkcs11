@@ -367,8 +367,9 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     return rv;
 }
 
-static int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-                         int init_pin );
+static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                         struct configuration_st *configuration,
+                         const char *pass, int init_pin );
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
@@ -642,7 +643,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* call pkcs#11 login to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pam_do_login( ph, password, 0 );
+    rv = pam_do_login( pamh, ph, configuration, password, 0 );
     /* erase and free in-memory password data asap */
 	if (password)
 	{
@@ -1049,7 +1050,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
 
 		if ( configuration->check_pin_early ) {
-			rv = pam_do_login( ph, old_pass, init_pin );
+			rv = pam_do_login( pamh, ph, configuration,
+                               old_pass, init_pin );
 			if ( rv == 0 ) {
 				logged_in = 1;
 			} else {
@@ -1130,7 +1132,8 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       }
 
       if ( !logged_in ) {
-          rv = pam_do_login( ph, old_pass, init_pin );
+          rv = pam_do_login( pamh, ph, configuration,
+                             old_pass, init_pin );
           if ( rv == 0 ) logged_in = 1;
       }
       if ( rv == 0 ) {
@@ -1172,8 +1175,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 }
 
 static
-int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-				  int init_pin )
+int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                  struct configuration_st *configuration,
+                  const char *pass, int init_pin )
 {
 	int rv;
 
