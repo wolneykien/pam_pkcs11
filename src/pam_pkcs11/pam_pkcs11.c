@@ -476,7 +476,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 {
   int i, rv;
   const char *user = NULL;
-  char *password;
+  char *password = NULL;
   unsigned int slot_num = 0;
   int is_a_screen_saver = 0;
   struct configuration_st *configuration;
