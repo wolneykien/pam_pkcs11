@@ -1418,10 +1418,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
         if (final_try) {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
+                       init_pin ?
+                         _("Error 2320: Wrong smartcard SO PIN. SO PIN is locked now!") :
+                         _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
         } else {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _("Error 2320: Wrong smartcard PIN"));
+                       init_pin ?
+                         _("Error 2320: Wrong smartcard SO PIN") :
+                         _("Error 2320: Wrong smartcard PIN"));
         }
 
         sleep(configuration->err_display_time);
