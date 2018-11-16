@@ -289,7 +289,9 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     uint32_t so_last_changed = 0;
     
     struct journal_record *rec = recs;
-	while (rec < (recs + len / sizeof (struct journal_record)))
+    while (!user_last_changed &&
+           !so_last_changed &&
+           rec < (recs + len / sizeof (struct journal_record)))
 	{
         read_time (rec);
         switch (rec->event_type)
@@ -300,12 +302,12 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
             break;
         case EVENT_USER_PIN_CHANGED:
         case EVENT_USER_PIN_CHANGED | EVENT_FLAG_MINIDRIVE:
-            if (rec->timestamp > user_last_changed)
+            if (!user_last_changed)
                 user_last_changed = rec->timestamp;
             break;
         case EVENT_SO_PIN_CHANGED:
         case EVENT_SO_PIN_CHANGED | EVENT_FLAG_MINIDRIVE:
-            if (rec->timestamp > so_last_changed)
+            if (!so_last_changed)
                 so_last_changed = rec->timestamp;
             break;
         }
