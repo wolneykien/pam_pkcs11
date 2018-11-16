@@ -337,18 +337,27 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     DBG1 ("User PIN last changed: %lu", user_last_changed);
     
     time_t now = time (NULL);
-    struct tm tm; gmtime_r (&now, &tm);
+    struct tm tm;
+
+    gmtime_r (&now, &tm);
+    tm.tm_sec = 0; tm.tm_min = 0; tm.tm_hour = 0;
     now = mktime (&tm);
+
     DBG2 ("Current time: %lu, period: %lu", now, context->expiration_period);
-    
+
+    time_t last_changed;
     if (sopin)
-    {
-        if ((now - so_last_changed) > context->expiration_period)
-            return PIN_EXPIRED;
-    }
+        last_changed = so_last_changed;
     else
-        if ((now - user_last_changed) > context->expiration_period)
-            return PIN_EXPIRED;
+        last_changed = user_last_changed;
+    
+    gmtime_r (&last_changed, &tm);
+    tm.tm_sec = 0; tm.tm_min = 0; tm.tm_hour = 0;
+    last_changed = mktime (&tm);
+    
+    if (last_changed > now ||
+        (now - last_changed) > context->expiration_period)
+      return PIN_EXPIRED;
 
     return PIN_OK;
 }
