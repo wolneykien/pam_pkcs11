@@ -966,6 +966,7 @@ typedef struct {
   CK_BBOOL token_present;
   CK_UTF8CHAR label[33]; /* token label */
   CK_UTF8CHAR slotDescription[64];
+  CK_UTF8CHAR serialNumber[64];
 } slot_t;
 
 struct pkcs11_handle_str {
@@ -1136,8 +1137,11 @@ refresh_slots(pkcs11_handle_t *h)
       DBG1("  - serial: %.16s", tinfo.serialNumber);
       DBG1("  - flags: %04lx", tinfo.flags);
       h->slots[i].token_present = TRUE;
-      memcpy(h->slots[i].label, tinfo.label, 32);
-      for (j = 31; h->slots[i].label[j] == ' '; j--) h->slots[i].label[j] = 0;
+      strncpy( h->slots[i].label, tinfo.label, sizeof(h->slots[i].label) );
+      h->slots[i].label[sizeof(h->slots[i].label)-1] = '\0';
+      strncpy( h->slots[i].serialNumber, tinfo.serialNumber,
+	       sizeof(h->slots[i].serialNumber) );
+      h->slots[i].serialNumber[sizeof(h->slots[i].serialNumber)-1] = '\0';
     }
   }
   return 0;
