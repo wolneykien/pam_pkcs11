@@ -1078,7 +1078,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
 
   rv = PAM_SUCCESS;
-  if (pin_to_be_changed && configuration->force_pin_change) {
+
+  if (!is_a_screen_saver && pin_to_be_changed &&
+	  configuration->force_pin_change)
+  {
       rv = pam_set_pin( pamh, ph, slot_num, configuration, password, 0 );
       if ( password ) {
           cleanse( password, strlen(password) );
