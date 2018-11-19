@@ -1049,6 +1049,18 @@ int load_pkcs11_module(const char *module, pkcs11_handle_t **hp)
   return 0;
 }
 
+static void
+_copy_token_info_string( char *dest, const char *src, size_t n)
+{
+  strncpy( dest, src, n );
+  dest[n - 1] = '\0';
+
+  int i;
+  for( i = n - 1; i >= 0; i--)
+    if ( dest[i] <= '\r' || dest[i] == ' ' )
+      dest[i] = '\0';
+}
+
 static int
 refresh_slots(pkcs11_handle_t *h)
 {
@@ -1137,11 +1149,10 @@ refresh_slots(pkcs11_handle_t *h)
       DBG1("  - serial: %.16s", tinfo.serialNumber);
       DBG1("  - flags: %04lx", tinfo.flags);
       h->slots[i].token_present = TRUE;
-      strncpy( h->slots[i].label, tinfo.label, sizeof(h->slots[i].label) );
-      h->slots[i].label[sizeof(h->slots[i].label)-1] = '\0';
-      strncpy( h->slots[i].serialNumber, tinfo.serialNumber,
-	       sizeof(h->slots[i].serialNumber) );
-      h->slots[i].serialNumber[sizeof(h->slots[i].serialNumber)-1] = '\0';
+      _copy_token_info_string( h->slots[i].label, tinfo.label,
+			       sizeof(h->slots[i].label) );
+      _copy_token_info_string( h->slots[i].serialNumber, tinfo.serialNumber,
+			       sizeof(h->slots[i].serialNumber) );
     }
   }
   return 0;
