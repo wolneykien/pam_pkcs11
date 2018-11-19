@@ -289,8 +289,8 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
     uint32_t so_last_changed = 0;
     
     struct journal_record *rec = recs;
-    while (!user_last_changed &&
-           !so_last_changed &&
+    while ((!user_last_changed ||
+           !so_last_changed) &&
            rec < (recs + len / sizeof (struct journal_record)))
 	{
         read_time (rec);
