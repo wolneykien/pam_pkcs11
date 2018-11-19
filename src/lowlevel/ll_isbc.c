@@ -205,7 +205,7 @@ set_session (void *_context, CK_SESSION_HANDLE session)
 #define EVENT_FLAG_UNKNOWN     0x40
 #define EVENT_FLAG_MINIDRIVE   0x80
 
-#define ESMART_TIME_BASE 1451595600 /* Jan 01 00:00:00 UTC 2016 */
+#define ESMART_TIME_BASE 1451606400 /* Jan 01 03:00:00 UTC 2016 */
                          
 
 #pragma pack(push, 1)
