@@ -330,12 +330,15 @@ pin_status (void *_context, unsigned int slot_num, int sopin)
         if (user_last_changed == (time_t) 0)
             return PIN_DEFAULT;
 
-    so_last_changed = so_last_changed + ESMART_TIME_BASE;
-    user_last_changed = user_last_changed + ESMART_TIME_BASE;
-    
-    DBG1 ("SO PIN last changed: %lu", so_last_changed);
-    DBG1 ("User PIN last changed: %lu", user_last_changed);
-    
+    if (0 != so_last_changed) {
+	    so_last_changed = so_last_changed + ESMART_TIME_BASE;
+	    DBG1 ("SO PIN last changed: %lu", so_last_changed);
+    }
+    if (0 != user_last_changed) {
+	    user_last_changed = user_last_changed + ESMART_TIME_BASE;
+	    DBG1 ("User PIN last changed: %lu", user_last_changed);
+    }
+ 
     time_t now = time (NULL);
     struct tm tm;
 
