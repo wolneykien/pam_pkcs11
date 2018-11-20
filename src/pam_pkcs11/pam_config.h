@@ -30,6 +30,8 @@ struct configuration_st {
 	scconf_context *ctx;
 	int debug;
 	int nullok;
+	int pin_len_min;
+	int pin_len_max;
 	int try_first_pass;
 	int use_first_pass;
 	int use_authok;

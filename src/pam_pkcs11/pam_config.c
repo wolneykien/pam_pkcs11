@@ -41,6 +41,8 @@ struct configuration_st configuration = {
 	NULL,				/* scconf_context *ctx; */
         0,				/* int debug; */
         0,				/* int nullok; */
+        0,              /* int pin_len_min */
+        100,            /* int pin_len_max */
         0,				/* int try_first_pass; */
         0,				/* int use_first_pass; */
         0,				/* int use_authok; */
@@ -77,6 +79,8 @@ struct configuration_st configuration = {
 static void display_config (void) {
         DBG1("debug %d",configuration.debug);
         DBG1("nullok %d",configuration.nullok);
+        DBG1("pin_len_min %d",configuration.pin_len_min);
+        DBG1("pin_len_max %d",configuration.pin_len_max);
         DBG1("try_first_pass %d",configuration.try_first_pass);
         DBG1("use_first_pass %d", configuration.use_first_pass);
         DBG1("use_authok %d", configuration.use_authok);
@@ -134,6 +138,11 @@ static void parse_config_file(void) {
 		scconf_get_int(root,"err_display_time",configuration.err_display_time);
 	configuration.nullok =
 	    scconf_get_bool(root,"nullok",configuration.nullok);
+	configuration.pin_len_min =
+	    scconf_get_int(root,"pin_len_min",configuration.pin_len_min);
+	configuration.pin_len_max =
+	    scconf_get_int(root,"pin_len_max",configuration.pin_len_max);
+	configuration.verbose = scconf_get_bool(root, "verbose", configuration.verbose);
 	configuration.quiet = scconf_get_bool(root,"quiet",configuration.quiet);
 	if (configuration.quiet)
 	    set_debug_level(-2);
