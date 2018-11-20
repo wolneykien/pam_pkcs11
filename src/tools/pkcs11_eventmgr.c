@@ -59,6 +59,7 @@ int daemon(int nochdir, int noclose);
 int polling_time;
 int expire_time;
 int daemonize;
+int use_waitevent;
 int debug;
 const char *cfgfile;
 char *pkcs11_module = NULL;
@@ -259,6 +260,7 @@ static int parse_config_file(void)
 	daemonize = scconf_get_bool(root, "daemon", daemonize);
 	polling_time = scconf_get_int(root, "polling_time", polling_time);
 	expire_time = scconf_get_int(root, "expire_time", expire_time);
+	use_waitevent = scconf_get_bool(root, "use_waitevent", use_waitevent);
 	pkcs11_module =
 		(char *) scconf_get_str(root, "pkcs11_module", pkcs11_module);
 #ifdef HAVE_NSS
@@ -276,6 +278,7 @@ static int parse_args(int argc, char *argv[])
 	expire_time = DEF_EXPIRE;
 	debug = 0;
 	daemonize = 0;
+	use_waitevent = 0;
 	cfgfile = DEF_CONFIG_FILE;
 
 	/* first of all check whether debugging should be enabled */
@@ -313,6 +316,11 @@ static int parse_args(int argc, char *argv[])
 		if (strcmp("nodaemon", argv[i]) == 0)
 		{
 			daemonize = 0;
+			continue;
+		}
+		if (strcmp("waitevent", argv[i]) == 0)
+		{
+			use_waitevent = 1;
 			continue;
 		}
 		if (strstr(argv[i], "polling_time="))
@@ -425,7 +433,7 @@ static struct SlotStatusStr *get_token_status(CK_SLOT_ID slotID)
 * try to find a valid token from slot list
 * returns CARD_PRESENT, CARD_NOT_PRESENT or CARD_ERROR
 */
-static int get_a_token(void)
+static int find_a_token(void)
 {
 	int rv;
 	unsigned long num_tokens = 0;
@@ -649,23 +657,32 @@ int main(int argc, char *argv[])
 	/*
 	 * Wait endlessly for all events in the list of readers
 	 * We only stop in case of an error
-	 *
-	 * COMMENT:
-	 * There are no way in pkcs11 API to detect if a card is present or no
-	 * so the way we proced is to look for an slot whit available token
-	 * Any ideas will be wellcomed
-	 *
-	 * REVIEW:
-	 * Errrh, well, above note is not exactly true: pkcs11v2.1 API defines
-	 * C_WaitForSlotEvent(). But it's known that is not supported in all
-	 * pkcs11 implementations, and seems to be buggy in multithreaded
-	 * environments....
 	 */
 	do
 	{
-		sleep(polling_time);
-		/* try to find an slot with available token(s) */
-		new_state = get_a_token();
+		if ( use_waitevent ) {
+			CK_SLOT_ID slotID;
+			CK_SLOT_INFO slotInfo;
+			rv = ph->fl->C_WaitForSlotEvent( 0, &slotID, NULL_PTR);
+			if (CKR_OK == rv) {
+				rv = ph->fl->C_GetSlotInfo( slotID, &slotInfo );
+				if (CKR_OK == rv) {
+					if (slotInfo.flags & CKF_TOKEN_PRESENT) {
+						new_state = CARD_PRESENT;
+					} else {
+						new_state = CARD_NOT_PRESENT;
+					}
+				} else {
+					new_state = CARD_ERROR;
+				}
+			} else {
+				new_state = CARD_ERROR;
+			}
+		} else {
+			sleep(polling_time);
+			/* try to find an slot with available token(s) */
+			new_state = find_a_token();
+		}
 		if (new_state == CARD_ERROR)
 		{
 			DBG("Error trying to get a token");
@@ -683,7 +700,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		}
-		if (old_state == new_state)
+		if (!use_waitevent && old_state == new_state)
 		{						/* state unchanged */
 			/* on card not present, increase and check expire time */
 			if (expire_time == 0)
@@ -710,22 +727,25 @@ int main(int argc, char *argv[])
 			{
 				DBG("Card removed, ");
 				execute_event("card_remove");
-				/*
-				   some pkcs11's fails on reinsert card. To avoid this
-				   re-initialize library on card removal
-				 */
-				DBG("Re-initialising pkcs #11 module...");
-				rv = ph->fl->C_Finalize(NULL);
-				if (rv != CKR_OK)
-				{
-					DBG1("C_Finalize() failed: %x", rv);
-					return CARD_ERROR;
-				}
-				rv = ph->fl->C_Initialize(NULL);
-				if (rv != CKR_OK)
-				{
-					DBG1("C_Initialize() failed: %x", rv);
-					return CARD_ERROR;
+
+				if (!use_waitevent) {
+					/*
+					  some pkcs11's fails on reinsert card. To avoid this
+					  re-initialize library on card removal
+					*/
+					DBG("Re-initialising pkcs #11 module...");
+					rv = ph->fl->C_Finalize(NULL);
+					if (rv != CKR_OK)
+					{
+						DBG1("C_Finalize() failed: %x", rv);
+						return CARD_ERROR;
+					}
+					rv = ph->fl->C_Initialize(NULL);
+					if (rv != CKR_OK)
+					{
+						DBG1("C_Initialize() failed: %x", rv);
+						return CARD_ERROR;
+					}
 				}
 			}
 			if (new_state == CARD_PRESENT)
