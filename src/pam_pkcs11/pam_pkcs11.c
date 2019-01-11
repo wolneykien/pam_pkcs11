@@ -371,7 +371,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         /* If the login isn't restricted to card-only, then proceed
            to the next auth. module quietly. */
         release_pkcs11_module(ph);
-        goto exit_ingore;
+        goto exit_ignore;
     }
 
     if (!configuration->wait_for_card) {
