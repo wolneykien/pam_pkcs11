@@ -95,7 +95,7 @@ int main(int argc, const char **argv) {
     DBG("no token available");
     return 1;
   }
-  rv = open_pkcs11_session(ph, slot_num);
+  rv = open_pkcs11_session(ph, slot_num, 0);
   if (rv != 0) {
     release_pkcs11_module(ph);
     DBG1("open_pkcs11_session() failed: %s", get_error());

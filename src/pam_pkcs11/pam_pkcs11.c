@@ -149,7 +149,7 @@ static int pam_pkcs11_prompt(const pam_handle_t *pamh, int style, char **resp, c
 
 
 /*
- * Gets the users password. Depending whether it was already asked, either
+ * Gets the user password. Depending whether it was already asked, either
  * a prompt is shown or the old value is returned.
  */
 static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, int nitem)
@@ -202,6 +202,169 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
     return PAM_SUCCESS;
   }
   return PAM_CRED_INSUFFICIENT;
+}
+
+static void _get_pwd_error( pam_handle_t *pamh,
+                            struct configuration_st *configuration,
+                            int rv )
+{
+    if (!configuration->quiet) {
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _("Error 2316: password could not be read"));
+        sleep(configuration->err_display_time);
+    }
+    pam_syslog(pamh, LOG_ERR,
+               "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
+}
+
+static int check_pwd( pam_handle_t *pamh,
+                      struct configuration_st *configuration,
+                      char *password )
+{
+#ifdef DEBUG_SHOW_PASSWORD
+    DBG1("password = [%s]", password);
+#endif
+
+    /* check password length */
+    if ( !configuration->nullok && strlen(password) == 0 ) {
+        memset(password, 0, strlen(password));
+        pam_syslog(pamh, LOG_ERR,
+                   "password length is zero but the 'nullok' " \
+                   "argument was not defined.");
+        if (!configuration->quiet) {
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2318: Empty smartcard PIN not allowed."));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTH_ERR;
+    }
+
+    return 0;
+}
+
+static int pkcs11_module_load_init( pam_handle_t *pamh,
+                                    struct configuration_st *configuration,
+                                    pkcs11_handle_t **ph )
+{
+    int rv;
+    
+    /* load pkcs #11 module */
+    DBG("loading pkcs #11 module...");
+    rv = load_pkcs11_module(configuration->pkcs11_modulepath, ph);
+    
+    if (rv != 0) {
+        ERR2("load_pkcs11_module() failed loading %s: %s",
+             configuration->pkcs11_modulepath, get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "load_pkcs11_module() failed loading %s: %s",
+                       configuration->pkcs11_modulepath, get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2302: PKCS#11 module failed loading"));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    /* initialise pkcs #11 module */
+    DBG("initializing pkcs #11 module...");
+    rv = init_pkcs11_module( *ph, configuration->support_threads );
+
+    if (rv != 0) {
+        release_pkcs11_module( *ph );
+        ERR1("init_pkcs11_module() failed: %s", get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "init_pkcs11_module() failed: %s",
+                       get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2304: PKCS#11 module could not be initialized"));
+            sleep(configuration->err_display_time);
+        }
+        return PAM_AUTHINFO_UNAVAIL;
+    }
+
+    return rv;
+}
+
+static int pkcs11_find_slot( pam_handle_t *pamh,
+                             struct configuration_st *configuration,
+                             const char *login_token_name,
+                             pkcs11_handle_t *ph,
+                             unsigned int *slot_num,
+                             int wait)
+{
+    int rv = -1;
+    
+    if (configuration->slot_description != NULL) {
+        if (!wait) {
+            rv = find_slot_by_slotlabel_and_tokenlabel(
+                     ph,
+                     configuration->slot_description,
+                     login_token_name,
+                     slot_num
+            );
+        } else {
+            rv = wait_for_token_by_slotlabel(
+                     ph,
+                     configuration->slot_description,
+                     login_token_name,
+                     slot_num
+            );
+        }
+    } else if (configuration->slot_num != -1) {
+        if (!wait) {
+            rv = find_slot_by_number_and_label(ph, configuration->slot_num,
+                                               login_token_name, slot_num);
+        } else {
+          rv = wait_for_token(ph, configuration->slot_num,
+                              login_token_name, slot_num);
+        }
+    }
+
+    return rv;
+}
+
+static int pkcs11_open_session( pam_handle_t *pamh,
+                                struct configuration_st *configuration,
+                                pkcs11_handle_t *ph,
+                                unsigned int slot_num,
+                                int rw )
+{
+    int rv;
+    
+    rv = open_pkcs11_session( ph, slot_num, rw );
+    
+    if (rv != 0) {
+        ERR1("open_pkcs11_session() failed: %s", get_error());
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2312: open PKCS#11 session failed"));
+            sleep(configuration->err_display_time);
+        }
+    }
+
+    return rv;
+}
+
+static int pkcs11_close_session( pam_handle_t *pamh,
+                                 struct configuration_st *configuration,
+                                 pkcs11_handle_t *ph )
+{
+    int rv;
+
+    rv = close_pkcs11_session(ph);
+    
+    if (rv != 0) {
+        ERR1("close_pkcs11_session() failed: %s", get_error());
+		if (!configuration->quiet) {
+			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
+			sleep(configuration->err_display_time);
+		}
+    }
+
+    return rv;
 }
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
@@ -328,45 +491,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return PAM_IGNORE;
   }
 
-  /* load pkcs #11 module */
-  DBG("loading pkcs #11 module...");
-  rv = load_pkcs11_module(configuration->pkcs11_modulepath, &ph);
-  if (rv != 0) {
-    ERR2("load_pkcs11_module() failed loading %s: %s",
-		configuration->pkcs11_modulepath, get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "load_pkcs11_module() failed loading %s: %s",
-			configuration->pkcs11_modulepath, get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2302: PKCS#11 module failed loading"));
-		sleep(configuration->err_display_time);
-	}
-    return pkcs11_pam_fail;
+  rv = pkcs11_module_load_init( pamh, configuration, &ph );
+  if ( rv != 0 ) {
+      return rv;
   }
 
-  /* initialise pkcs #11 module */
-  DBG("initialising pkcs #11 module...");
-  rv = init_pkcs11_module(ph,configuration->support_threads);
-  if (rv != 0) {
-    release_pkcs11_module(ph);
-    ERR1("init_pkcs11_module() failed: %s", get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "init_pkcs11_module() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2304: PKCS#11 module could not be initialized"));
-		sleep(configuration->err_display_time);
-	}
-    return pkcs11_pam_fail;
-  }
-
-  if (configuration->slot_description != NULL) {
-    rv = find_slot_by_slotlabel_and_tokenlabel(ph,
-      configuration->slot_description, login_token_name, &slot_num);
-  } else if (configuration->slot_num != -1) {
-    rv = find_slot_by_number_and_label(ph, configuration->slot_num,
-                                     login_token_name, &slot_num);
-  }
+  rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                         &slot_num, 0 );
 
   if (rv != 0) {
-      /* No token found */
     if (!configuration->card_only) {
         /* If the login isn't restricted to card-only, then proceed
            to the next auth. module quietly. */
@@ -391,13 +524,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                        _("Please insert your smart card."));
         }
 
-        if (configuration->slot_description != NULL) {
-            rv = wait_for_token_by_slotlabel(ph, configuration->slot_description,
-                                           login_token_name, &slot_num);
-        } else if (configuration->slot_num != -1) {
-            rv = wait_for_token(ph, configuration->slot_num,
-                                login_token_name, &slot_num);
-        }
+        rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                               &slot_num, 1 );
     }
   }
 
@@ -423,12 +551,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   /* open pkcs #11 session */
   rv = open_pkcs11_session(ph, slot_num);
   if (rv != 0) {
-    ERR1("open_pkcs11_session() failed: %s", get_error());
-    if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2312: open PKCS#11 session failed"));
-		sleep(configuration->err_display_time);
-	}
     release_pkcs11_module(ph);
     return pkcs11_pam_fail;
   }
@@ -464,30 +586,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
 		}
 		if (rv != PAM_SUCCESS) {
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2316: password could not be read"));
-				sleep(configuration->err_display_time);
-			}
+            _get_pwd_error( pamh, configuration, rv );
 			release_pkcs11_module(ph);
-			pam_syslog(pamh, LOG_ERR,
-					"pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 			return pkcs11_pam_fail;
 		}
-#ifdef DEBUG_SHOW_PASSWORD
-		DBG1("password = [%s]", password);
-#endif
 
-		/* check password length */
-		if (!configuration->nullok && strlen(password) == 0) {
+        rv = check_pwd( pamh, configuration, password );
+        if ( rv != 0 ) {
 			release_pkcs11_module(ph);
-			cleanse(password, strlen(password));
-			free(password);
-			pam_syslog(pamh, LOG_ERR,
-					"password length is zero but the 'nullok' argument was not defined.");
-			if (!configuration->quiet) {
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2318: Empty smartcard PIN not allowed."));
-				sleep(configuration->err_display_time);
-			}
+            if ( password ) {
+                memset( password, 0, strlen(password) );
+                free( password );
+            }
 			return PAM_AUTH_ERR;
 		}
 	}
@@ -774,15 +884,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   unload_mappers();
 
   /* close pkcs #11 session */
-  rv = close_pkcs11_session(ph);
+  rv = pkcs11_close_session( pamh, configuration, ph );
   if (rv != 0) {
     release_pkcs11_module(ph);
-    ERR1("close_pkcs11_session() failed: %s", get_error());
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
-			sleep(configuration->err_display_time);
-		}
     return pkcs11_pam_fail;
   }
 
@@ -844,17 +948,194 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, con
 PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   char *login_token_name;
-
-  ERR("Warning: Function pam_sm_chauthtok() is not implemented in this module");
-  pam_syslog(pamh, LOG_WARNING,
-             "Function pam_sm_chauthtok() is not implemented in this module");
-
   login_token_name = getenv("PKCS11_LOGIN_TOKEN_NAME");
-  if (login_token_name && (flags & PAM_PRELIM_CHECK)) {
-    pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-               _("Cannot change the password on your smart card."));
+  
+  {
+      char *old_pass;
+      char *new_pass;
+      int rv; unsigned int slot_num;
+      struct configuration_st *configuration;
+      pkcs11_handle_t *ph;
+      
+      if (flags & PAM_PRELIM_CHECK) {
+          return PAM_SUCCESS;
+      }
+
+      configuration = pk_configure(argc,argv);
+      if (!configuration ) {
+          ERR("Error setting configuration parameters");
+          return PAM_AUTHINFO_UNAVAIL;
+      }
+      
+      rv = pkcs11_module_load_init( pamh, configuration, &ph );
+      if ( rv != 0 ) {
+          return rv;
+      }
+
+      rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
+                             &slot_num, 0 );
+      if ( rv != 0 ) {
+          ERR("No smartcard found");
+          if (!configuration->quiet) {
+              pam_syslog(pamh, LOG_ERR, "No smartcard found");
+          }
+          if ( configuration->card_only || login_token_name ) {
+              pam_prompt(pamh, PAM_ERROR_MSG, NULL,
+                         _("Error 2310: No smartcard found"));
+              sleep(configuration->err_display_time);
+          }          
+          release_pkcs11_module(ph);
+          if ( configuration->card_only || login_token_name ) {
+              return PAM_AUTHINFO_UNAVAIL;
+          } else {
+              return PAM_IGNORE;
+          }
+      }      
+
+      rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
+      if (rv != 0) {
+          release_pkcs11_module(ph);
+          return PAM_AUTHINFO_UNAVAIL;
+      }
+
+      const char *init_pin = pam_getenv(pamh, "INIT_PIN");
+      if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
+      
+      rv = get_slot_protected_authentication_path( ph );
+      if ((-1 == rv) || (0 == rv)) {
+          /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+          char password_prompt[128];
+          char *confirm;
+
+          /* Old PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   init_pin ? _("%s SO PIN: ") : _("Old %s PIN: "),
+                   _(configuration->token_type));
+          rv = pam_get_pwd(pamh, &old_pass, password_prompt,
+                           0, PAM_AUTHTOK);
+
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration, rv );
+              release_pkcs11_module(ph);
+              return PAM_AUTHTOK_RECOVERY_ERR;
+          }
+
+          rv = check_pwd( pamh, configuration, old_pass );
+          if ( rv != 0 ) {
+              release_pkcs11_module(ph);
+              if ( old_pass ) {
+                  memset( old_pass, 0, strlen(old_pass) );
+                  free(old_pass);
+              }
+              return PAM_AUTHTOK_RECOVERY_ERR;
+          }
+
+          /* New PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   _("New %s PIN: "), _(configuration->token_type));
+          rv = pam_get_pwd(pamh, &new_pass, password_prompt,
+                           0, PAM_AUTHTOK);
+          
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration, rv );
+              release_pkcs11_module(ph);
+              return PAM_AUTHTOK_ERR;
+          }
+
+          rv = check_pwd( pamh, configuration, new_pass );
+          if ( rv != 0 ) {
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );
+              free( old_pass );
+              if ( new_pass ) {
+                  memset( new_pass, 0, strlen(new_pass) );
+                  free( new_pass );
+              }
+              return PAM_AUTHTOK_ERR;
+          }
+
+          /* Confirm new PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   _("Confirm new PIN: "));
+          rv = pam_get_pwd(pamh, &confirm, password_prompt,
+                           0, PAM_AUTHTOK);
+          
+          if (rv != PAM_SUCCESS) {
+              _get_pwd_error( pamh, configuration, rv );
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );
+              free( old_pass );
+              memset( new_pass, 0, strlen(new_pass) );
+              free( new_pass );
+              return PAM_AUTHTOK_ERR;
+          }
+
+          if ( strcmp(new_pass, confirm) != 0 ) {
+              ERR("Confirm PIN mismatch");
+              if (!configuration->quiet) {
+                  pam_syslog(pamh, LOG_ERR, "Confirm PIN mismatch");
+                  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                             _("Confirm PIN mismatch"));
+                  sleep(configuration->err_display_time);
+              }
+              release_pkcs11_module(ph);
+              memset( old_pass, 0, strlen(old_pass) );              
+              free( old_pass );
+              memset( new_pass, 0, strlen(new_pass) );
+              free( new_pass );
+              memset( confirm, 0, strlen(confirm) );
+              free( confirm );
+              return PAM_AUTHTOK_ERR;
+          } else {
+              memset( confirm, 0, strlen(confirm) );
+              free( confirm );
+          }
+      } else {
+          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                     _("Now use the pinpad to change your %s PIN"),
+                     _(configuration->token_type));
+          old_pass = NULL;
+          new_pass = NULL;
+      }
+
+      if (init_pin) {
+          rv = pkcs11_login_so( ph, old_pass );
+          if ( rv == 0 ) {
+              rv = pkcs11_initpin( ph, new_pass );
+          }
+      } else {
+          rv = pkcs11_login( ph, old_pass );
+          if ( rv == 0 ) {
+              rv = pkcs11_setpin( ph, old_pass, new_pass );
+          }
+      }
+      
+      pkcs11_close_session( pamh, configuration, ph );
+      release_pkcs11_module( ph );
+
+      if ( old_pass ) {
+          memset( old_pass, 0, strlen(old_pass) );              
+          free( old_pass );
+      }
+      if ( new_pass ) {
+          memset( new_pass, 0, strlen(new_pass) );
+          free( new_pass );
+      }
+
+      if ( rv == 0 ) {
+          return PAM_SUCCESS;
+      } else {
+          ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
+          if (!configuration->quiet) {
+              pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
+                         init_pin ? "Init" : "Set");
+              pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                         _("Error: Unable to set new PIN"));
+              sleep(configuration->err_display_time);
+          }
+          return PAM_AUTHTOK_ERR;
+      }
   }
-  return PAM_SERVICE_ERR;
 }
 
 #ifdef PAM_STATIC
