@@ -50,6 +50,8 @@ typedef struct mapper_module_st {
     char **(*entries)(X509 *x509, void *context);
     /** cert. login finder */
     char *(*finder)(X509 *x509, void *context, int *match);
+    /** cert. description finder */
+    char *(*describer)(X509 *x509, void *context);
     /** cert-to-login matcher*/
     int (*matcher)(X509 *x509, const char *login, void *context);
     /** module de-initialization */
@@ -192,6 +194,20 @@ static char * mapper_find_user(X509 *x509,void *context,int *match) {		\
 }
 
 /**
+* Default macro for user description
+*
+* Should not be used except for debugging, as always returns the
+* empty string.
+*@param x509 X509 Certificate
+*@param context Mapper context
+*/
+#define _DEFAULT_MAPPER_FIND_DESCRIPTION			\
+static char * mapper_find_description(X509 *x509, void *context) {		\
+        if ( !x509 ) return NULL;		\
+        return "";						\
+}
+
+/**
 * Macro for match mapper function
 *
 *@param x509 X509 Certificate
@@ -239,6 +255,7 @@ mapper_module* mapper_module_init(scconf_block *blk,const char *name) {	\
 	pt->dbg_level  = get_debug_level();				\
 	pt->entries = mapper_find_entries;				\
 	pt->finder  = mapper_find_user;					\
+	pt->describer  = mapper_find_description;		\
 	pt->matcher = mapper_match_user;				\
 	pt->deinit  = mapper_module_end;			\
 	return pt;							\

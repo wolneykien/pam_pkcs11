@@ -55,7 +55,11 @@ static int scramble = 0;
 #define MAX_ENTRY_LEN 256
 static int maxlen = MAX_ENTRY_LEN;
 
+static char *user_desc = NULL;
+static char *desc_mapfile = NULL;
+
 static char *scramble_entry(const char* entry);
+static void parse_search_item(const char *item, int *id_type, const char **algo);
 
 static char **generic_mapper_find_entries(X509 *x509, void *context) {
     if (!x509) {
@@ -135,23 +139,23 @@ static char *scramble_entry(const char* entry) {
     return entrybuf;
 }
 
-static char **get_mapped_entries(char **entries) {
+static char **get_mapped_entries(char **entries, const char *mapfile, int usepwent) {
 	int match = 0;
 	char *entry;
 	int n=0;
 	char *res=NULL;
 	/* if mapfile is provided, map entries according it */
-	if ( !strcmp(mapfile,"none") ) {
+	if ( !mapfile || strlen(mapfile) == 0 || !strcmp(mapfile,"none") ) {
 	    DBG("Use map file is disabled");
 	} else {
-	    DBG1("Using map file '%s'",mapfile);
+	    DBG1("Using map file '%s'", mapfile);
 	    for(n=0, entry=entries[n]; entry; entry=entries[++n]) {
 		res = mapfile_find(mapfile,entry,ignorecase,&match);
 		if (res) entries[n]=res;
 	    }
 	}
 	/* if NSS is set, re-map entries against it */
-	if ( usepwent==0 ) {
+	if ( usepwent == 0 ) {
 	    DBG("Use Naming Services is disabled");
 	} else {
 	    res=NULL;
@@ -164,31 +168,69 @@ static char **get_mapped_entries(char **entries) {
 	return entries;
 }
 
-static char *generic_mapper_find_user(X509 *x509, void *context, int *match) {
-	char **entries;
+static char *generic_mapper_find_entry(char **entries, const char *themapfile, int usepwent) {
 	int n;
-        if (!x509) {
-                DBG("NULL certificate provided");
-                return NULL;
-        }
-	/* get entries from certificate */
-	entries= generic_mapper_find_entries(x509,context);
-	if (!entries) {
-		DBG("Cannot find any entries in certificate");
-		return 0;
-	}
-	/* do file and pwent mapping */
-	entries= get_mapped_entries(entries);
+
+    /* do file and pwent mapping */
+    entries = get_mapped_entries(entries, themapfile, usepwent);
+
 	/* and now return first nonzero item */
-	for (n=0;n<CERT_INFO_SIZE;n++) {
-	    char *str=entries[n];
+	for (n = 0; n < CERT_INFO_SIZE; n++) {
+	    char *str = entries[n];
 	    if (str && !is_empty_str(str) ) {
-		*match = 1;
-	    	return clone_str(str);
+	    	return str;
 	    }
 	}
+
 	/* arriving here means no map found */
 	return NULL;
+}
+
+static char *generic_mapper_find_user(X509 *x509, void *context, int *match) {
+    if (!x509) {
+        DBG("NULL certificate provided");
+        return NULL;
+    }
+
+    char **entries = generic_mapper_find_entries(x509, context);
+	if (!entries) {
+		DBG("Cannot find any entries in certificate");
+		return NULL;
+	}
+
+    char *str = generic_mapper_find_entry(entries, mapfile, usepwent);
+    if (str) {
+        *match = 1;
+        return clone_str(str);
+    }
+
+    return NULL;
+}
+
+static char *generic_mapper_find_description(X509 *x509, void *context) {
+    if (!x509) {
+        DBG("NULL certificate provided");
+        return NULL;
+    }
+
+    if (!user_desc) return NULL;
+
+    int item_id = CERT_CN;
+    const char *algo = ALGORITHM_NULL;
+    parse_search_item(user_desc, &item_id, &algo);
+
+    char **entries = cert_info(x509, item_id, algo);
+	if (!entries) {
+		DBG("Cannot find any entries in certificate");
+		return NULL;
+	}
+
+    char *str = generic_mapper_find_entry(entries, desc_mapfile, 0);
+    if (str) {
+        return clone_str(str);
+    }
+
+    return NULL;
 }
 
 static int generic_mapper_match_user(X509 *x509, const char *login, void *context) {
@@ -208,7 +250,7 @@ static int generic_mapper_match_user(X509 *x509, const char *login, void *contex
 		return 0;
 	}
 	/* do file and pwent mapping */
-	entries= get_mapped_entries(entries);
+	entries = get_mapped_entries(entries, mapfile, usepwent);
 	/* and now try to match entries with provided login  */
 	for (n=0;n<CERT_INFO_SIZE;n++) {
 	    char *str=entries[n];
@@ -235,9 +277,26 @@ static mapper_module * init_mapper_st(scconf_block *blk, const char *name) {
 	pt->context = NULL;
 	pt->entries = generic_mapper_find_entries;
 	pt->finder = generic_mapper_find_user;
+    pt->describer = generic_mapper_find_description;
 	pt->matcher = generic_mapper_match_user;
 	pt->deinit = mapper_module_end;
 	return pt;
+}
+
+static void parse_search_item(const char *item, int *id_type, const char **algo) {
+    if (!strcasecmp(item,"cn"))           *id_type=CERT_CN;
+    else if (!strcasecmp(item,"subject")) *id_type=CERT_SUBJECT;
+    else if (!strcasecmp(item,"kpn") )    *id_type=CERT_KPN;
+    else if (!strcasecmp(item,"email") )  *id_type=CERT_EMAIL;
+    else if (!strcasecmp(item,"upn") )    *id_type=CERT_UPN;
+	else if (!strcasecmp(item,"uid") )    *id_type=CERT_UID;
+	else if (!strcasecmp(item,"serial") ) *id_type=CERT_SERIAL;
+	else if (strlen(item) > 2 && item[0] >= '0' && item[0] < '3' && item[1] == '.') {
+        *id_type = CERT_OID;
+        *algo = item;
+    } else {
+	    DBG1("Invalid certificate item to search '%s'; using 'cn'",item);
+	}
 }
 
 /**
@@ -261,24 +320,14 @@ mapper_module * generic_mapper_module_init(scconf_block *blk,const char *name) {
     postfix = scconf_get_str(blk,"postfix", "");
     scramble = scconf_get_bool(blk,"scramble", 0);
     maxlen = scconf_get_int(blk,"maxlen", MAX_ENTRY_LEN);
+    user_desc = scconf_get_str(blk,"user_desc", NULL);
+    desc_mapfile = scconf_get_str(blk,"desc_mapfile", NULL);
 	} else {
 		/* should not occurs, but... */
 		DBG1("No block declaration for mapper '%s'",name);
 	}
 	set_debug_level(debug);
-	if (!strcasecmp(item,"cn"))           id_type=CERT_CN;
-	else if (!strcasecmp(item,"subject")) id_type=CERT_SUBJECT;
-	else if (!strcasecmp(item,"kpn") )    id_type=CERT_KPN;
-	else if (!strcasecmp(item,"email") )  id_type=CERT_EMAIL;
-	else if (!strcasecmp(item,"upn") )    id_type=CERT_UPN;
-	else if (!strcasecmp(item,"uid") )    id_type=CERT_UID;
-	else if (!strcasecmp(item,"serial") ) id_type=CERT_SERIAL;
-	else if (strlen(item) > 2 && item[0] >= '0' && item[0] < '3' && item[1] == '.') {
-        id_type = CERT_OID;
-        algorithm = item;
-    } else {
-	    DBG1("Invalid certificate item to search '%s'; using 'cn'",item);
-	}
+    parse_search_item(item, &id_type, &algorithm);
 	pt = init_mapper_st(blk,name);
 	if (pt) DBG5("Generic mapper started. debug: %d, mapfile: '%s', ignorecase: %d usepwent: %d idType: '%d'",debug,mapfile,ignorecase,usepwent,id_type);
 	else DBG("Generic mapper initialization failed");

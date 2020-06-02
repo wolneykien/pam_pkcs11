@@ -78,6 +78,14 @@ void unload_mappers(void);
 */
 char * find_user(X509 *x509);
 
+/*
+* This function searches mapper module list until
+* it finds a module that returns a login name for
+* provided certificate and an optional login (user)
+* description.
+*/
+char * find_user_desc(X509 *x509, char **desc);
+
 /**
 * This function search mapper module list until
 * find a module that match provided login name
@@ -87,6 +95,19 @@ char * find_user(X509 *x509);
 *         -1 on error
 */
 int match_user(X509 *x509, const char *login);
+
+/**
+* This function searches a mapper module list until
+* it finds a module that matches provided login name.
+* If login is null, call find_user and returns 1, or 0 depending
+* on whether a user is found.
+*
+* Additionally, returns the a description for the found login,
+* if any.
+*
+* @return 1 if match, 0 no match, -1 on error.
+*/
+int match_user_desc(X509 *x509, const char *login, char **desc);
 
 /*
 * This funcions goest throught the mapper list
