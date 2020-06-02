@@ -160,6 +160,14 @@ pam_pkcs11 {
         mapfile = file:///etc/pam_pkcs11/generic_mapping;
         # Decide if use getpwent() to map login
         use_getpwent = false;
+        # Use scramble flag to hash the extracted value with SHA1 hash
+        scramble = false;
+        # Limit the size of the hashed value to maxlen characters
+        maxlen = 256;
+        # May declare prefix and postfix that are automatically added
+        # to the extracted login values.
+        prefix = "";
+        postfix = "";
   }
 
   # Certificate Subject to login based mapper

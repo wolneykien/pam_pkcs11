@@ -33,6 +33,8 @@
 #include "../common/error.h"
 #include "../common/strings.h"
 #include "../common/cert_info.h"
+#include "../common/base64.h"
+#include <openssl/sha.h>
 #include "mapper.h"
 #include "generic_mapper.h"
 
@@ -44,14 +46,93 @@ static const char *mapfile = "none";
 static int usepwent = 0;
 static int ignorecase = 0;
 static int id_type = CERT_CN;
+static const char *algorithm = ALGORITHM_NULL;
 static int debug = 0;
+static const char *prefix;
+static const char *postfix;
+static int scramble = 0;
+
+#define MAX_ENTRY_LEN 256
+static int maxlen = MAX_ENTRY_LEN;
+
+static char *scramble_entry(const char* entry);
 
 static char **generic_mapper_find_entries(X509 *x509, void *context) {
-        if (!x509) {
-                DBG("NULL certificate provided");
-                return NULL;
+    if (!x509) {
+        DBG("NULL certificate provided");
+        return NULL;
+    }
+
+    char **entries = cert_info(x509, id_type, algorithm);
+    if (!entries) {
+        return NULL;
+    }
+
+    char *entry; int n;
+    char *entrybuf;
+    for (n=0, entry=entries[n]; entry; entry=entries[++n]) {
+        if (scramble) {
+            entries[n] = scramble_entry(entry);
+            // FIXME: free(entry) ?
+            entry = entries[n];
         }
-	return cert_info(x509, id_type, ALGORITHM_NULL);
+        if ((prefix || postfix) && NULL != entry)  {
+            entrybuf = malloc(MAX_ENTRY_LEN);
+            if (!entrybuf) {
+                DBG("Unable to allocate entry buffer");
+                entries[n] = NULL;
+            } else {
+                snprintf(entrybuf, MAX_ENTRY_LEN, "%s%s%s",
+                         prefix, entry, postfix);
+                entries[n] = entrybuf;
+                // FIXME: free(entry) ?
+                entry = entries[n];
+            }
+        }
+    }
+    
+	return entries;
+}
+
+#define SHA1_LENGTH 20
+
+static char *scramble_entry(const char* entry) {
+    unsigned char hash[SHA1_LENGTH];
+    size_t entrysize = (4 * ((sizeof(hash) + 2) / 3)) + 1;
+    char *entrybuf;
+    SHA1(entry, strlen(entry), hash);
+
+    entrybuf = malloc(entrysize);
+    if (!entrybuf) {
+        DBG("Unable to allocate entry buffer");
+        return NULL;
+    }
+
+    size_t outlen = entrysize;
+    if ( 0 != base64_encode(hash, sizeof(hash), entrybuf, &outlen) ) {
+        DBG("Unexpected error: unable to BASE64-encode the entry");
+        return NULL;
+    }
+    
+    int i;
+    for (i = 0; i < outlen; i++) {
+        if (entrybuf[i] >= 'A' && entrybuf[i] <= 'Z') {
+            entrybuf[i] = entrybuf[i] + 'a' - 'A';
+        } else {
+            switch (entrybuf[i]) {
+            case '+':
+            case '/':
+            case '=':
+                entrybuf[i] = 'o';
+            }
+        }
+    }
+
+    if (outlen > maxlen) {
+        entrybuf[maxlen] = '\0';
+    }
+
+    return entrybuf;
 }
 
 static char **get_mapped_entries(char **entries) {
@@ -175,7 +256,11 @@ mapper_module * generic_mapper_module_init(scconf_block *blk,const char *name) {
 	ignorecase = scconf_get_bool( blk,"ignorecase",0);
 	usepwent = scconf_get_bool( blk,"use_getpwent",0);
 	mapfile= scconf_get_str(blk,"mapfile",mapfile);
-	item= scconf_get_str(blk,"cert_item","cn");
+	item = scconf_get_str(blk,"cert_item","cn");
+    prefix = scconf_get_str(blk,"prefix", "");
+    postfix = scconf_get_str(blk,"postfix", "");
+    scramble = scconf_get_bool(blk,"scramble", 0);
+    maxlen = scconf_get_int(blk,"maxlen", MAX_ENTRY_LEN);
 	} else {
 		/* should not occurs, but... */
 		DBG1("No block declaration for mapper '%s'",name);
@@ -188,7 +273,10 @@ mapper_module * generic_mapper_module_init(scconf_block *blk,const char *name) {
 	else if (!strcasecmp(item,"upn") )    id_type=CERT_UPN;
 	else if (!strcasecmp(item,"uid") )    id_type=CERT_UID;
 	else if (!strcasecmp(item,"serial") ) id_type=CERT_SERIAL;
-	else {
+	else if (strlen(item) > 2 && item[0] >= '0' && item[0] < '3' && item[1] == '.') {
+        id_type = CERT_OID;
+        algorithm = item;
+    } else {
 	    DBG1("Invalid certificate item to search '%s'; using 'cn'",item);
 	}
 	pt = init_mapper_st(blk,name);
