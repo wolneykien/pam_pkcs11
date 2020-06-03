@@ -264,6 +264,7 @@ src/common/Makefile
 src/common/rsaref/Makefile
 src/tools/Makefile
 src/mappers/Makefile
+src/lowlevel/Makefile
 src/pam_pkcs11/Makefile
 tools/Makefile
 ])

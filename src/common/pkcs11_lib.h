@@ -61,6 +61,10 @@ PKCS11_EXTERN int pkcs11_login_so(pkcs11_handle_t *h, char *password);
 PKCS11_EXTERN int pkcs11_pass_login(pkcs11_handle_t *h, int nullok);
 PKCS11_EXTERN int get_slot_login_required(pkcs11_handle_t *h);
 PKCS11_EXTERN int get_slot_protected_authentication_path(pkcs11_handle_t *h);
+PKCS11_EXTERN int get_slot_user_pin_count_low(pkcs11_handle_t *h);
+PKCS11_EXTERN int get_slot_user_pin_final_try(pkcs11_handle_t *h);
+PKCS11_EXTERN int get_slot_user_pin_locked(pkcs11_handle_t *h);
+PKCS11_EXTERN int get_slot_user_pin_to_be_changed(pkcs11_handle_t *h);
 PKCS11_EXTERN cert_object_t **get_certificate_list(pkcs11_handle_t *h,
                                                   int *ncert);
 PKCS11_EXTERN int get_private_key(pkcs11_handle_t *h, cert_object_t *);
