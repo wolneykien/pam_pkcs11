@@ -1130,8 +1130,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
-      const char *init_pin = pam_getenv(pamh, "INIT_PIN");
-      if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
+      int init_pin = (pam_getenv(pamh, "INIT_PIN") != NULL);
+      if (!init_pin) init_pin = (pam_getenv(pamh, "PAM_RESET_AUTHTOK") != NULL);
+      if (!init_pin) init_pin = (getenv("PKCS11_INIT_PIN") != NULL);
 
       if (!init_pin) {
           rv = get_slot_user_pin_locked(ph);
@@ -1319,10 +1320,6 @@ static int pam_set_pin( pam_handle_t *pamh,
                         int init_pin )
 {
     int rv;
-
-    /* load lowlevel modules */
-    struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx,
-                                                        ph );
 
     rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 1 );
     if (rv != 0) {
