@@ -88,6 +88,7 @@ char *bin2hex(const unsigned char *binstr,const int len) {
 	    return res;
 	}
 	for(i=0,pt=res;i<len;i++,pt+=3){
+		/* pt is allocated above */
 	    sprintf(pt,"%02X:",binstr[i]);
 	}
 	*(--pt)='\0'; /* replace last ':' with '\0' */

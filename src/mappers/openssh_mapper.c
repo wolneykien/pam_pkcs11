@@ -319,7 +319,7 @@ static int openssh_mapper_match_user(X509 *x509, const char *user, void *context
             DBG1("User '%s' has no home directory",user);
             return -1;
         }
-	sprintf(filename,"%s/.ssh/authorized_keys",pw->pw_dir);
+	snprintf(filename, sizeof(filename),"%s/.ssh/authorized_keys",pw->pw_dir);
         return openssh_mapper_match_keys(x509,filename);
 }
 
@@ -339,7 +339,7 @@ static char * openssh_mapper_find_user(X509 *x509, void *context, int *match) {
                 DBG1("User '%s' has no home directory",pw->pw_name);
                 continue;
             }
-	    sprintf(filename,"%s/.ssh/authorized_keys",pw->pw_dir);
+	    snprintf(filename, sizeof(filename),"%s/.ssh/authorized_keys",pw->pw_dir);
             n = openssh_mapper_match_keys (x509,filename);
             if (n<0) {
                 DBG1("Error in matching process with user '%s'",pw->pw_name);
