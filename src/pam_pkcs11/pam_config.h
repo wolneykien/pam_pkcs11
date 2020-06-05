@@ -47,6 +47,8 @@ struct configuration_st {
 	int quiet;
 	int err_display_time;
     int pin_count_low;
+    int reset_pin_low;
+    int reset_pin_locked;
     int force_pin_change;
 };
 

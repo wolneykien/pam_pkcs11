@@ -27,7 +27,8 @@
 #endif
 
 #include "../scconf/scconf.h"
-#include "../lowlevel/lowlevel.h"
+#include "../lowlevel/lowlevel_api.h"
+#include "../common/pkcs11_lib.h"
 
 /*
 * lowlevel module descriptor
@@ -36,14 +37,17 @@ struct lowlevel_instance {
     void *module_handler;
     const char *module_name;
     const char *module_path;
-    lowlevel_module *module_data;
+    pkcs11_handle_t *ph;
+    void *module_data;
+    lowlevel_funcs funcs;
 };
 
 /*
 * Load and initialize a module.
 * Returns descriptor on success, NULL on fail.
 */
-struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name);
+struct lowlevel_instance *load_llmodule( scconf_context *ctx, const char * name,
+                                         pkcs11_handle_t *ph );
 
 /**
 * Unload a module.
@@ -53,6 +57,7 @@ void unload_llmodule( struct lowlevel_instance *module );
 /**
 * Load lowlevel module and return its handle.
 */
-struct lowlevel_instance *load_lowlevel( scconf_context *ctx );
+struct lowlevel_instance *load_lowlevel( scconf_context *ctx,
+                                         pkcs11_handle_t *ph );
 
 #endif

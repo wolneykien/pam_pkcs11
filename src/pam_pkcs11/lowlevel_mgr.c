@@ -31,21 +31,64 @@
 #include "../scconf/scconf.h"
 #include "../common/debug.h"
 #include "../common/error.h"
-#include "../lowlevel/lowlevel.h"
+#include "../common/pkcs11_lib_cryptoki.h"
 #include "lowlevel_mgr.h"
+#include "../lowlevel/lowlevel.h"
+
+static void
+apply_p11 (struct lowlevel_instance *module)
+{
+    if (!module || !module->module_data) return;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    if (module->ph && llm->set_session) {
+        llm->set_session (llm->context, pkcs11_get_session (module->ph));
+    }
+}
+
+static int
+ll_pin_count (void *context, unsigned int slot_num, int sopin)
+{
+    struct lowlevel_instance *module = (struct lowlevel_instance *) context;
+    if (!module || !module->module_data) return -1;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    apply_p11 (module);
+    if (llm->funcs.pin_count) {
+        return llm->funcs.pin_count (llm->context, slot_num, sopin);
+    } else {
+        return -1;
+    }
+}
+
+static int
+ll_pin_status (void *context, unsigned int slot_num, int sopin)
+{
+    struct lowlevel_instance *module = (struct lowlevel_instance *) context;
+    if (!module || !module->module_data) return -1;
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+
+    apply_p11 (module);
+    if (llm->funcs.pin_status) {
+        return llm->funcs.pin_status (llm->context, slot_num, sopin);
+    } else {
+        return -1;
+    }
+}
 
 /*
 * Load and initialize a lowlevel module.
 * Returns descriptor on success, NULL on fail.
 */
-struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) {
-
+struct lowlevel_instance *load_llmodule( scconf_context *ctx,
+                                         const char * name,
+                                         pkcs11_handle_t *ph )
+{
 	const scconf_block *root;
 	scconf_block **blocks, *blk;
 	struct lowlevel_instance *mymodule;
-	lowlevel_module * (*lowlevel_init)(scconf_block *blk, const char *lowlevel_name);
+	lowlevel_module * (*lowlevel_init)(lowlevel_module *module);
 	void *handler = NULL;
-	int old_level = get_debug_level();
 	const char *libname = NULL;
 	lowlevel_module *res = NULL;
 
@@ -74,7 +117,7 @@ struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) 
 		return NULL;
     }
 
-    lowlevel_init = ( lowlevel_module * (*)(scconf_block *blk, const char *lowlevel_name) ) dlsym(handler,"lowlevel_module_init");
+    lowlevel_init = ( lowlevel_module * (*)(lowlevel_module *module) ) dlsym(handler, "lowlevel_module_init");
     
     if ( !lowlevel_init ) {
 		dlclose(handler);
@@ -82,16 +125,16 @@ struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) 
 		return NULL;
     }
 
-    res = lowlevel_init(blk, name);
+    _DEFAULT_LOWLEVEL_INIT_MODULE(res, name, blk);
+
+    res->p11 = pkcs11_get_funcs (ph);
+
+    res = lowlevel_init(res);
     if (!res ) { /* init failed */
 		DBG1("Module %s init failed", name);
 		dlclose(handler);
 		return NULL;
     }
-
-    /* save dbg level of lowlevel and restore previous one */
-    res->dbg_level = get_debug_level();
-    set_debug_level(old_level);
 
 	/* allocate data */
 	mymodule = malloc (sizeof(struct lowlevel_instance));
@@ -104,27 +147,34 @@ struct lowlevel_instance *load_llmodule(scconf_context *ctx, const char * name) 
 	mymodule->module_name = name;
 	mymodule->module_path = libname;
 	mymodule->module_data = res;
+	mymodule->ph = ph;
+
+    mymodule->funcs.context = mymodule;
+    if (res->funcs.pin_status)
+        mymodule->funcs.pin_status = ll_pin_status;
+    if (res->funcs.pin_count)
+        mymodule->funcs.pin_count = ll_pin_count;
 
 	return mymodule;
 }
 
 void unload_llmodule( struct lowlevel_instance *module ) {
 	if (!module) return;
-
-    DBG1("Calling lowlevel_module_end() %s", module->module_name);
-	if ( module->module_data->deinit ) {
-		int old_level = get_debug_level();
-		set_debug_level(module->module_data->dbg_level);
-		(*module->module_data->deinit)(module->module_data->context);
-		set_debug_level(old_level);
+    
+    lowlevel_module *llm = (lowlevel_module *) module->module_data;
+	if ( llm && llm->deinit ) {
+        DBG1("Calling %s->deinit", module->module_name);
+		(*llm->deinit)(llm->context);
 	}
+
+    free(module->module_data);
+	module->module_data = NULL;
 
     if (module->module_handler) {
 		DBG1("Unloading module %s", module->module_name);
 		dlclose(module->module_handler);
         module->module_handler = NULL;
 	}
-	module->module_data = NULL;
     
 	/* don't free name and libname: they are elements of
 	scconf tree */
@@ -132,7 +182,9 @@ void unload_llmodule( struct lowlevel_instance *module ) {
 	return;
 }
 
-struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
+struct lowlevel_instance *load_lowlevel( scconf_context *ctx,
+                                         pkcs11_handle_t *ph )
+{
 	const scconf_block *root = scconf_find_block(ctx, NULL, "pam_pkcs11");
 	if (!root) {
 		DBG("No pam_pkcs11 block in config file");
@@ -145,7 +197,7 @@ struct lowlevel_instance *load_lowlevel( scconf_context *ctx ) {
         return NULL;
 	}
     
-    struct lowlevel_instance *module = load_llmodule(ctx, name);
+    struct lowlevel_instance *module = load_llmodule(ctx, name, ph);
     if (module) {
         return module;
 	}

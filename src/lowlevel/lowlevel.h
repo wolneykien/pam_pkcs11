@@ -30,6 +30,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../scconf/scconf.h"
+#include "../common/debug.h"
+
+#include "lowlevel_api.h"
+
 
 /**
 * Structure to be filled on lowlevel module initialization
@@ -42,21 +46,28 @@ typedef struct lowlevel_module_st {
     /** debug level to set before call entry points */
     int  dbg_level; 
     /** pointer to lowlevel local data */
-    void *context; 
-    /** PIN-code input attempts */
-    int (*pin_count)(void *context, unsigned int slot_num, int sopin);
+    void *context;
+    /** PKCS#11 function list (relies on the lowlevel
+    module implementation to include the proper version
+    of pkcs11.h) */
+    CK_FUNCTION_LIST_PTR p11;
+    /** Used to set the current PKCS#11 session */
+    void (*set_session) (void *context, CK_SESSION_HANDLE session);
     /** module de-initialization */
-    void (*deinit)( void *context); 
+    void (*deinit)(void *context);
+    lowlevel_funcs funcs;
 } lowlevel_module;
 
-#define _DEFAULT_LOWLEVEL_INIT \
-lowlevel_module* lowlevel_module_init(scconf_block *blk, const char *name) { \
-	lowlevel_module *pt= calloc(1, sizeof (lowlevel_module)); \
-	if (!pt) return NULL;						              \
-	pt->name    = name;						                  \
-	pt->block   = blk;						                  \
-	pt->dbg_level  = get_debug_level();				          \
-	return pt;							                      \
+#define _DEFAULT_LOWLEVEL_INIT_MODULE(module, name, blk)           \
+	module = calloc(1, sizeof (lowlevel_module));                  \
+	if (!module) return NULL;                                      \
+	module->name    = name;                                        \
+	module->block   = blk;                                         \
+	module->dbg_level  = get_debug_level()
+
+#define _DEFAULT_LOWLEVEL_INIT                                      \
+lowlevel_module* lowlevel_module_init(lowlevel_module *module) {    \
+    return module;                                                  \
 }
 
 /* end of lowlevel.h file */
