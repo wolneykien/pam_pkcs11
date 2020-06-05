@@ -1092,8 +1092,22 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           }
       }
 
-      const char *init_pin = pam_getenv(pamh, "INIT_PIN");
-      if (!init_pin) init_pin = getenv("PKCS11_INIT_PIN");
+      int init_pin = (pam_getenv(pamh, "INIT_PIN") != NULL);
+      if (!init_pin) init_pin = (pam_getenv(pamh, "PAM_RESET_AUTHTOK") != NULL);
+      if (!init_pin) init_pin = (getenv("PKCS11_INIT_PIN") != NULL);
+
+      rv = get_slot_protected_authentication_path( ph );
+      if ((-1 == rv) || (0 == rv)) {
+          /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+          char password_prompt[128];
+          char *confirm;
+
+          /* Old PIN */
+          snprintf(password_prompt, sizeof(password_prompt),
+                   init_pin ? _("%s SO PIN: ") : _("Old %s PIN: "),
+                   _(configuration->token_type));
+          rv = pam_get_pwd(pamh, &old_pass, password_prompt,
+                           0, PAM_AUTHTOK);
 
       if (flags & PAM_CHANGE_EXPIRED_AUTHTOK) {
           rv = get_slot_user_pin_to_be_changed(ph);
