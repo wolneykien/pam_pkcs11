@@ -380,8 +380,9 @@ lowlevel_module* lowlevel_module_init (lowlevel_module *module) {
     context->p11 = module->p11;
     context->expiration_period = (unsigned long) (scconf_get_int (module->block, "pin_expire_min", 14 * 24 * 60) * 60); // 2 weeks by default
     
-    module->pin_count = pin_count;
-    module->pin_status = pin_status;
+    module->funcs.pin_count = pin_count;
+    module->funcs.pin_status = pin_status;
+
     module->set_session = set_session;
     module->context = context;
     module->deinit = deinit;
