@@ -404,8 +404,8 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
             if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_count_low", configuration);
 
             int pins_left = -1;
-            if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
-                pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, slot_num, 0);
+            if ( lowlevel && lowlevel->funcs.pin_count) {
+                pins_left = (*lowlevel->funcs.pin_count)(lowlevel->funcs.context, slot_num, 0);
                 if (pins_left >= 0) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                                (pins_left < configuration->pin_count_low) ?
@@ -1047,14 +1047,33 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
            pam_strerror(pamh, rv));
   }
 
+  int pin_status = PIN_OK;
+  if (!pin_to_be_changed && lowlevel && lowlevel->funcs.pin_status) {
+      pins_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
+      if (pins_status < 0) {
+          ERR1("pin_status() from %s failed", lowlevel->module_name);
+          if (!configuration->quiet) {
+              pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
+                         lowlevel->module_name);
+          }
+      } else {
+          DBG1 ("PIN status: %d", pin_status);
+          pin_to_be_changed = 1;
+      }
+  } else if (pin_to_be_changed) {
+      pin_status = PIN_DEFAULT;
+  }
+
   /* unload lowlevel modules */
   unload_llmodule( lowlevel );
   /* unload mapper modules */
   unload_mappers();
 
   if (pin_to_be_changed) {
-      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 _("User PIN needs to be changed"));
+      pam_prompt (pamh, PAM_TEXT_INFO, NULL,
+                  PAM_EXPIRED ?
+                    _("User PIN has expired and needs to be changed") :
+                    _("User PIN needs to be changed"));
   }
 
   /* close pkcs #11 session */
