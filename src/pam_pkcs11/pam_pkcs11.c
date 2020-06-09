@@ -651,8 +651,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
 		sleep(configuration->err_display_time);
 	}
-    release_pkcs11_module(ph);
-    return pkcs11_pam_fail;
+    goto auth_failed_nopw;
   } else if (rv) {
       pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                  pin_locked ?
@@ -688,18 +687,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		}
 		if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
-			release_pkcs11_module(ph);
-			return pkcs11_pam_fail;
+            goto auth_failed_nopw;
 		}
 
         rv = check_pwd( pamh, configuration, password );
         if ( rv != 0 ) {
-			release_pkcs11_module(ph);
-            if ( password ) {
-                memset( password, 0, strlen(password) );
-                free( password );
-            }
-			return PAM_AUTH_ERR;
+			goto auth_failed_wrongpw;
 		}
 	}
 	else
@@ -940,15 +933,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       free(signature);
     }
     if (rv != 0) {
-      close_pkcs11_session(ph);
-      release_pkcs11_module(ph);
       ERR1("verify_signature() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
 			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2342: Verifying signature failed"));
 			sleep(configuration->err_display_time);
 		}
-      return PAM_AUTH_ERR;
+      goto auth_failed_wrongpw;
     }
 
   } else {
@@ -1047,18 +1038,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* close pkcs #11 session */
   rv = pkcs11_close_session( pamh, configuration, ph );
-  if (rv != 0) {
-    release_pkcs11_module(ph);
-    return pkcs11_pam_fail;
-  }
+  if (rv != 0)
+      goto auth_failed_nopw;
 
   rv = PAM_SUCCESS;
   if (pin_to_be_changed && configuration->force_pin_change) {
       rv = pam_set_pin( pamh, ph, slot_num, configuration, password, 0 );
-      if ( password ) {
-          memset( password, 0, strlen(password) );
-          free( password );
-      }
+  }
+
+  if ( password ) {
+      cleanse( password, strlen(password) );
+      free( password );
+      password = NULL;
   }
 
   /* release pkcs #11 module */
@@ -1070,21 +1061,25 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
   return rv;
 
-  /* quick and dirty fail exit point */
-  cleanse(password, strlen(password));
-  free(password); /* erase and free in-memory password data */
-
 auth_failed_nopw:
     unload_llmodule( lowlevel );
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
+    if ( password ) {
+        cleanse( password, strlen(password) );
+        free( password );
+    }
     return pkcs11_pam_fail;
 
 auth_failed_wrongpw:
     unload_mappers();
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
+    if ( password ) {
+        cleanse( password, strlen(password) );
+        free( password );
+    }
     return PAM_AUTH_ERR;
 }
 
