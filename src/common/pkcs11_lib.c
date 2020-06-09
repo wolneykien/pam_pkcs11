@@ -71,6 +71,26 @@ int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
   return 0;
 }
 
+/* Like pkcs11_pass_login above, but skip PIN prompt if desired
+ * (e.g., if ask_pin is set; this is insecure).
+ */
+int pkcs11_nopass_login(pkcs11_handle_t *h)
+{
+  int rv;
+
+  DBG("pkcs11_login is affected by false ask_pin; this might be insecure");
+
+  /* perform pkcs #11 login similarly to
+     CKF_PROTECTED_AUTHENTICATION_PATH in pam_pkcs11.c
+     (when the pinpad is to be used instead of asking for PIN here) */
+  rv = pkcs11_login(h, NULL);
+  if (rv != 0) {
+    set_error("pkcs11_login() failed: %s", get_error());
+    return -1;
+  }
+  return 0;
+}
+
 /*
  * memcmp_pad_max() is a specialized version of memcmp() which compares two
  * pieces of data up to a maximum length.  If the two data match up the

@@ -625,23 +625,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
-  pin_locked = 0;
-  rv = get_slot_user_pin_locked(ph);
-  if (rv) {
-      if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
-      pin_locked = 1;
-  }
+  /* We split the code into two cases based on configuration->ask_pin:
+     first comes the simplified case, then the complete default one.
 
-  rv = get_slot_user_pin_to_be_changed(ph);
-  if (rv) {
-      if (rv < 0) {
-          report_pkcs11_lib_error(pamh,
-                                  "get_slot_user_pin_to_be_changed",
-                                  configuration);
-      } else {
-          pin_to_be_changed = 1;
-      }
-  }
+     There is some common code there, but we repeat it intentionally
+     because this way the implementation of the ask-pin-later feature (by raorn@)
+     will be as simple as just moving the second default part. */
+  if (!configuration->ask_pin) {
 
   rv = get_slot_login_required(ph);
   if (rv == -1) {
@@ -653,109 +643,25 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	}
     goto auth_failed_nopw;
   } else if (rv) {
-      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                 pin_locked ?
-                   _("Welcome %.32s! PIN is locked!") :
-                   _("Welcome %.32s!"),
-                 get_slot_tokenlabel(ph));
-
-      if (pin_locked) {
-          pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                     _("User PIN is locked!"));
-          sleep(configuration->err_display_time);
-          release_pkcs11_module(ph);
-          return pkcs11_pam_fail;
-      }
-
-      final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
-                                        slot_num );
-
-	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
-	rv = get_slot_protected_authentication_path(ph);
-	if ((-1 == rv) || (0 == rv))
-	{
-		char password_prompt[256];
-
-		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
-		if (configuration->use_first_pass) {
-			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
-		} else if (configuration->try_first_pass) {
-			rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
-					PAM_AUTHTOK);
-		} else {
-			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
-		}
-		if (rv != PAM_SUCCESS) {
-            _get_pwd_error( pamh, configuration, rv );
-            goto auth_failed_nopw;
-		}
-
-        rv = check_pwd( pamh, configuration, password );
-        if ( rv != 0 ) {
-			goto auth_failed_wrongpw;
-		}
-	}
-	else
-	{
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
-		/* use pin pad */
-		password = NULL;
-	}
-
-    /* call pkcs#11 login to ensure that the user is the real owner of the card
+	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+    DBG("pkcs11_login is affected by false ask_pin (before ensuring that the user is the real owner of the card); this might be insecure");
+    /* call pkcs#11 login with empty password to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pkcs11_login(ph, password);
-    /* erase and free in-memory password data asap */
-	if (password && !pin_to_be_changed)
-	{
-		cleanse(password, strlen(password));
-		free(password);
-	}
+    rv = pkcs11_login(ph, NULL);
     if (rv != 0) {
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
         }
-        if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
-            int pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, slot_num, 0);
-            if (pins_left > 0) {
-                if (pins_left < configuration->pin_count_low) {
-                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               pins_left > 1 ?
-                                 _("Error 2320.1: Wrong smartcard PIN. Only %i attempts left!"):
-                                 _("Error 2320.1: Wrong smartcard PIN. Only 1 attempt left!"),
-                               pins_left);
-                } else {
-                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               pins_left > 1 ?
-                                 _("Error 2320.2: Wrong smartcard PIN. %i attempts left!"):
-                                 _("Error 2320.2: Wrong smartcard PIN. 1 attempt left!"),
-                               pins_left);
-                }
-            } else if (pins_left == 0) {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
-            } else {
-                ERR1("pin_count() from %s failed", lowlevel->module_name);
-                if (!configuration->quiet) {
-                    pam_syslog(pamh, LOG_ERR, "pin_count() from %s failed",
-                               lowlevel->module_name);
-                }
-            }
-        } else {
-            if (final_try) {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
-            } else {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
-            }
-        }
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
         sleep(configuration->err_display_time);
         goto auth_failed_wrongpw;
     }
   }
+
+  } /* end if (!configuration->ask_pin) */
 
   cert_list = get_certificate_list(ph, &ncert);
   if (rv<0) {
@@ -774,6 +680,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx, ph );
 
   /* find a valid and matching certificates */
+  int cert_rv = 0;
   for (i = 0; i < ncert; i++) {
     X509 *x509 = (X509 *)get_X509_certificate(cert_list[i]);
     if (!x509 ) continue; /* sanity check */
@@ -782,38 +689,20 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("verifying certificate"));
 	}
 
-      /* verify certificate (date, signature, CRL, ...) */
-      rv = verify_certificate(x509,&configuration->policy);
-      if (rv < 0) {
+    /* verify certificate (date, signature, CRL, ...) */
+    rv = 0;
+    cert_rv = verify_certificate(x509,&configuration->policy);
+    if (cert_rv < 0) {
         ERR1("verify_certificate() failed: %s", get_error());
         if (!configuration->quiet) {
-          pam_syslog(pamh, LOG_ERR,
-                   "verify_certificate() failed: %s", get_error());
-			switch (rv) {
-				case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2324: Certificate has expired"));
-					break;
-				case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2326: Certificate not yet valid"));
-					break;
-				case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2328: Certificate signature invalid"));
-					break;
-				default:
-					pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-						_("Error 2330: Certificate invalid"));
-					break;
-			}
-			sleep(configuration->err_display_time);
+            pam_syslog(pamh, LOG_ERR,
+                       "verify_certificate() failed: %s", get_error());
 		}
         continue; /* try next certificate */
-      } else if (rv != 1) {
+    } else if (cert_rv != 1) {
         ERR1("verify_certificate() failed: %s", get_error());
         continue; /* try next certificate */
-      }
+    }
 
     /* CA and CRL verified, now check/find user */
 
@@ -872,16 +761,143 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* now myCert points to our found certificate or null if no user found */
   if (!chosen_cert) {
-    ERR("no valid certificate which meets all requirements found");
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR,
-				"no valid certificate which meets all requirements found");
-		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2336: No matching certificate found"));
+      ERR("no valid certificate which meets all requirements found");
+      if (!configuration->quiet) {
+          if (cert_rv < 0) {
+              switch (cert_rv) {
+              case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2324: Certificate has expired"));
+                  break;
+              case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2326: Certificate not yet valid"));
+                  break;
+              case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2328: Certificate signature invalid"));
+                  break;
+              default:
+				  pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+							 _("Error 2330: Certificate invalid"));
+                  break;
+              }
+              sleep(configuration->err_display_time);
+          } else {
+              pam_syslog(pamh, LOG_ERR,
+                         "no valid certificate which meets all requirements found");
+			  pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2336: No matching certificate found"));
+              sleep(configuration->err_display_time);
+          }
+      }
+      goto auth_failed_nopw;
+  }
+
+
+  if (configuration->ask_pin)
+  {
+
+  pin_locked = 0;
+  rv = get_slot_user_pin_locked(ph);
+  if (rv) {
+      if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
+      pin_locked = 1;
+  }
+
+  rv = get_slot_user_pin_to_be_changed(ph);
+  if (rv) {
+      if (rv < 0) {
+          report_pkcs11_lib_error(pamh,
+                                  "get_slot_user_pin_to_be_changed",
+                                  configuration);
+      } else {
+          pin_to_be_changed = 1;
+      }
+  }
+
+  rv = get_slot_login_required(ph);
+  if (rv == -1) {
+    ERR1("get_slot_login_required() failed: %s", get_error());
+    if (!configuration->quiet) {
+		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
+		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
 		sleep(configuration->err_display_time);
 	}
     goto auth_failed_nopw;
+  } else if (rv) {
+      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                 pin_locked ?
+                   _("Welcome %.32s! PIN is locked!") :
+                   _("Welcome %.32s!"),
+                 get_slot_tokenlabel(ph));
+
+      if (pin_locked) {
+          pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                     _("User PIN is locked!"));
+          sleep(configuration->err_display_time);
+          release_pkcs11_module(ph);
+          return pkcs11_pam_fail;
+      }
+
+      final_try = check_warn_pin_count( pamh, ph, lowlevel,
+                                        configuration, slot_num );
+
+    /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+	rv = get_slot_protected_authentication_path(ph);
+	if ((-1 == rv) || (0 == rv))
+	{
+		char password_prompt[256];
+
+		snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
+		if (configuration->use_first_pass) {
+			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
+		} else if (configuration->try_first_pass) {
+			rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
+					PAM_AUTHTOK);
+		} else {
+			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
+		}
+		if (rv != PAM_SUCCESS) {
+            _get_pwd_error( pamh, configuration, rv );
+            goto auth_failed_nopw;
+		}
+
+        rv = check_pwd( pamh, configuration, password );
+        if ( rv != 0 ) {
+			goto auth_failed_wrongpw;
+		}
+	}
+	else
+	{
+		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+			_("Enter your %s PIN on the pinpad"), _(configuration->token_type));
+		/* use pin pad */
+		password = NULL;
+	}
+
+    /* call pkcs#11 login to ensure that the user is the real owner of the card
+     * we need to do thise before get_certificate_list because some tokens
+     * can not read their certificates until the token is authenticated */
+    rv = pkcs11_login(ph, password);
+    /* erase and free in-memory password data asap */
+	if (password && !pin_to_be_changed)
+	{
+		cleanse(password, strlen(password));
+		free(password);
+	}
+
+    if (rv != 0) {
+      ERR1("open_pkcs11_login() failed: %s", get_error());
+		if (!configuration->quiet) {
+			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+			sleep(configuration->err_display_time);
+		}
+      goto auth_failed_nopw;
+    }
   }
 
+  } /* end if (configuration->ask_pin) */
 
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {

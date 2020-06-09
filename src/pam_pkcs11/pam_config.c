@@ -69,7 +69,8 @@ struct configuration_st configuration = {
     5,          /* pin_count_low */
     1,          /* reset_pin_low */
     1,          /* reset_pin_locked */
-    0           /* force_pin_change */
+    0,          /* force_pin_change */
+	1			/* ask_pin */
 };
 
 #ifdef DEBUG_CONFIG
@@ -98,6 +99,7 @@ static void display_config (void) {
         DBG1("force_pin_change %d",configuration.force_pin_change);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
+        DBG1("ask_pin %d",configuration.ask_pin);
 }
 #endif
 
@@ -159,7 +161,8 @@ static void parse_config_file(void) {
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
 	configuration.reset_pin_locked =
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
-
+	configuration.ask_pin =
+	    scconf_get_bool(root,"ask_pin",configuration.ask_pin);
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {
@@ -281,6 +284,14 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
 	   }
     	   if (strcmp("use_first_pass", argv[i]) == 0) {
       		configuration.use_first_pass = 1;
+		continue;
+	   }
+    	   if (strcmp("ask_pin", argv[i]) == 0) {
+      		configuration.ask_pin = 1;
+		continue;
+	   }
+    	   if (strcmp("dont_ask_pin", argv[i]) == 0) {
+      		configuration.ask_pin = 0;
 		continue;
 	   }
     	   if (strcmp("wait_for_card", argv[i]) == 0) {
