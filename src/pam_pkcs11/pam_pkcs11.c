@@ -108,7 +108,7 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
      *response = strdup(resp[0].resp);
   }
   /* overwrite memory and release it */
-  memset(resp[0].resp, 0, strlen(resp[0].resp));
+  cleanse(resp[0].resp, strlen(resp[0].resp));
   free(&resp[0]);
   return PAM_SUCCESS;
 }
@@ -191,7 +191,7 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
       return PAM_CRED_INSUFFICIENT;
     *pwd = strdup(resp[0].resp);
     /* overwrite memory and release it */
-    memset(resp[0].resp, 0, strlen(resp[0].resp));
+    cleanse(resp[0].resp, strlen(resp[0].resp));
     free(&resp[0]);
     /* save password if variable nitem is set */
     if ((nitem == PAM_AUTHTOK) || (nitem == PAM_OLDAUTHTOK)) {
@@ -227,7 +227,7 @@ static int check_pwd( pam_handle_t *pamh,
 
     /* check password length */
     if ( !configuration->nullok && strlen(password) == 0 ) {
-        memset(password, 0, strlen(password));
+        cleanse(password, strlen(password));
         pam_syslog(pamh, LOG_ERR,
                    "password length is zero but the 'nullok' " \
                    "argument was not defined.");
@@ -625,7 +625,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         if ( rv != 0 ) {
 			release_pkcs11_module(ph);
             if ( password ) {
-                memset( password, 0, strlen(password) );
+                cleanse( password, strlen(password) );
                 free( password );
             }
 			return PAM_AUTH_ERR;
@@ -646,7 +646,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* erase and free in-memory password data asap */
 	if (password)
 	{
-		memset(password, 0, strlen(password));
+		cleanse(password, strlen(password));
 		free(password);
 	}
     if (rv != 0) goto auth_failed_wrongpw;
@@ -920,7 +920,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   return PAM_SUCCESS;
 
     /* quick and dirty fail exit point */
-    memset(password, 0, strlen(password));
+    cleanse(password, strlen(password));
     free(password); /* erase and free in-memory password data */
 
 auth_failed_nopw:
@@ -1042,7 +1042,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           if ( rv != 0 ) {
               release_pkcs11_module(ph);
               if ( old_pass ) {
-                  memset( old_pass, 0, strlen(old_pass) );
+                  cleanse( old_pass, strlen(old_pass) );
                   free(old_pass);
               }
               return PAM_AUTHTOK_RECOVERY_ERR;
@@ -1054,7 +1054,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 				logged_in = 1;
 			} else {
 				if (clean_old_pass && old_pass) {
-					memset( old_pass, 0, strlen(old_pass) );
+					cleanse( old_pass, strlen(old_pass) );
 					free( old_pass );
 				}
 				return PAM_AUTHTOK_RECOVERY_ERR;
@@ -1076,10 +1076,10 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           rv = check_pwd( pamh, configuration, new_pass );
           if ( rv != 0 ) {
               release_pkcs11_module(ph);
-              memset( old_pass, 0, strlen(old_pass) );
+              cleanse( old_pass, strlen(old_pass) );
               free( old_pass );
               if ( new_pass ) {
-                  memset( new_pass, 0, strlen(new_pass) );
+                  cleanse( new_pass, strlen(new_pass) );
                   free( new_pass );
               }
               return PAM_AUTHTOK_ERR;
@@ -1094,9 +1094,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           if (rv != PAM_SUCCESS) {
               _get_pwd_error( pamh, configuration, rv );
               release_pkcs11_module(ph);
-              memset( old_pass, 0, strlen(old_pass) );
+              cleanse( old_pass, strlen(old_pass) );
               free( old_pass );
-              memset( new_pass, 0, strlen(new_pass) );
+              cleanse( new_pass, strlen(new_pass) );
               free( new_pass );
               return PAM_AUTHTOK_ERR;
           }
@@ -1110,15 +1110,15 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
                   sleep(configuration->err_display_time);
               }
               release_pkcs11_module(ph);
-              memset( old_pass, 0, strlen(old_pass) );              
+              cleanse( old_pass, strlen(old_pass) );              
               free( old_pass );
-              memset( new_pass, 0, strlen(new_pass) );
+              cleanse( new_pass, strlen(new_pass) );
               free( new_pass );
-              memset( confirm, 0, strlen(confirm) );
+              cleanse( confirm, strlen(confirm) );
               free( confirm );
               return PAM_AUTHTOK_ERR;
           } else {
-              memset( confirm, 0, strlen(confirm) );
+              cleanse( confirm, strlen(confirm) );
               free( confirm );
           }
       } else {
@@ -1145,11 +1145,11 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       release_pkcs11_module( ph );
 
       if ( old_pass ) {
-          memset( old_pass, 0, strlen(old_pass) );              
+          cleanse( old_pass, strlen(old_pass) );              
           free( old_pass );
       }
       if ( new_pass ) {
-          memset( new_pass, 0, strlen(new_pass) );
+          cleanse( new_pass, strlen(new_pass) );
           free( new_pass );
       }
 
