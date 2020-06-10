@@ -884,6 +884,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	{
 		cleanse(password, strlen(password));
 		free(password);
+		password = NULL;
 	}
 
     if (rv != 0) {
