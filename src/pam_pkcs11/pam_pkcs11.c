@@ -500,7 +500,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
 			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
+			pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
 			sleep(configuration->err_display_time);
 		}
       goto auth_failed_nopw;
