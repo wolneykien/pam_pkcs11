@@ -228,7 +228,7 @@ static int check_pwd( pam_handle_t *pamh,
 
     /* check password length */
     if ( !configuration->nullok && strlen(password) == 0 ) {
-        memset(password, 0, strlen(password));
+        cleanse(password, strlen(password));
         pam_syslog(pamh, LOG_ERR,
                    "password length is zero but the 'nullok' " \
                    "argument was not defined.");
@@ -1312,7 +1312,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
             rv = check_pwd( pamh, configuration, old_pass );
             if ( rv != 0 ) {
                 if (clean_old_pass && old_pass) {
-                    memset( old_pass, 0, strlen(old_pass) );
+                    cleanse( old_pass, strlen(old_pass) );
                     free( old_pass );
                 }
                 return PAM_AUTHTOK_RECOVERY_ERR;
@@ -1325,7 +1325,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 				logged_in = 1;
 			} else {
 				if (clean_old_pass && old_pass) {
-					memset( old_pass, 0, strlen(old_pass) );
+					cleanse( old_pass, strlen(old_pass) );
 					free( old_pass );
 				}
 				return PAM_AUTHTOK_RECOVERY_ERR;
@@ -1346,11 +1346,11 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         rv = check_pwd( pamh, configuration, new_pass );
         if ( rv != 0 ) {
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
             if ( new_pass ) {
-                memset( new_pass, 0, strlen(new_pass) );
+                cleanse( new_pass, strlen(new_pass) );
                 free( new_pass );
             }
             return PAM_AUTHTOK_ERR;
@@ -1365,10 +1365,10 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
-            memset( new_pass, 0, strlen(new_pass) );
+            cleanse( new_pass, strlen(new_pass) );
             free( new_pass );
             return PAM_AUTHTOK_ERR;
         }
@@ -1382,16 +1382,16 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                 sleep(configuration->err_display_time);
             }
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
-            memset( new_pass, 0, strlen(new_pass) );
+            cleanse( new_pass, strlen(new_pass) );
             free( new_pass );
-            memset( confirm, 0, strlen(confirm) );
+            cleanse( confirm, strlen(confirm) );
             free( confirm );
             return PAM_AUTHTOK_ERR;
         } else {
-            memset( confirm, 0, strlen(confirm) );
+            cleanse( confirm, strlen(confirm) );
             free( confirm );
         }
     } else {
@@ -1415,11 +1415,11 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     }
 
     if (clean_old_pass && old_pass) {
-        memset( old_pass, 0, strlen(old_pass) );
+        cleanse( old_pass, strlen(old_pass) );
         free( old_pass );
     }
     if ( new_pass ) {
-        memset( new_pass, 0, strlen(new_pass) );
+        cleanse( new_pass, strlen(new_pass) );
         free( new_pass );
     }
 
