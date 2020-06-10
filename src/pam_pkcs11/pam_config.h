@@ -54,6 +54,7 @@ struct configuration_st {
     int reset_pin_low;
     int reset_pin_locked;
     int force_pin_change;
+    int change_pin_early;
 
 #ifdef ENABLE_PWQUALITY
     const char *pwquality_config;

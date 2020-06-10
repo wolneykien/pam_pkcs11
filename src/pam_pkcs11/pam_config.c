@@ -69,7 +69,8 @@ struct configuration_st configuration = {
     5,          /* pin_count_low */
     1,          /* reset_pin_low */
     1,          /* reset_pin_locked */
-    0           /* force_pin_change */
+    0,          /* force_pin_change */
+    0           /* change_pin_early */
 };
 
 #ifdef DEBUG_CONFIG
@@ -98,6 +99,7 @@ static void display_config (void) {
         DBG1("force_pin_change %d",configuration.force_pin_change);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
+        DBG1("change_pin_early %d", configuration.change_pin_early);
 
 #ifdef ENABLE_PWQUALITY
         DBG1("pwquality_config %s",configuration.pwquality_config);
@@ -169,6 +171,8 @@ static void parse_config_file(void) {
 	    scconf_get_str(root, "pwquality_config", configuration.pwquality_config);
 #endif
 
+    configuration.change_pin_early =
+        scconf_get_bool(root, "change_pin_early", configuration.change_pin_early);
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {
