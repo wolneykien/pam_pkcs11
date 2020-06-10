@@ -25,6 +25,10 @@
 #include "../scconf/scconf.h"
 #include "../common/cert_vfy.h"
 
+#ifdef ENABLE_PWQUALITY
+#include <pwquality.h>
+#endif
+
 struct configuration_st {
 	const char *config_file;
 	scconf_context *ctx;
@@ -52,6 +56,11 @@ struct configuration_st {
     int force_pin_change;
 	int ask_pin;
     int change_pin_early;
+
+#ifdef ENABLE_PWQUALITY
+    const char *pwquality_config;
+    pwquality_settings_t *pwq;
+#endif
 };
 
 struct configuration_st *pk_configure( int argc, const char **argv );

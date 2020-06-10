@@ -62,6 +62,10 @@
 #endif
 #define LOGNAME   "PAM-PKCS11"  /* name for log-file entries */
 
+#ifdef ENABLE_PWQUALITY
+#include <pwquality.h>
+#endif
+
 /*
 * comodity function that returns 1 on null, empty o spaced string
 */
@@ -1288,9 +1292,6 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     int final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
                                           slot_num );
 
-    int final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
-                                          slot_num );
-
     rv = get_slot_protected_authentication_path( ph );
     if ((-1 == rv) || (0 == rv)) {
         /* no CKF_PROTECTED_AUTHENTICATION_PATH */
@@ -1380,7 +1381,36 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                 pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                            _("Confirm PIN mismatch"));
                 sleep(configuration->err_display_time);
+                rv = PAM_AUTHTOK_ERR;
             }
+        }
+
+#ifdef ENABLE_PWQUALITY
+          if ( rv == 0 && configuration->pwq ) {
+              void *auxerror;
+              rv = pwquality_check( configuration->pwq, new_pass,
+                                    init_pin ? NULL : old_pass,
+                                    NULL, &auxerror );
+              if ( rv < 0 ) {
+                  const char *err_text =
+                      pwquality_strerror( NULL, 0, rv, auxerror );
+                  ERR1("PIN quality check failed: %s", err_text);
+                  if (!configuration->quiet) {
+                      pam_syslog(pamh, LOG_ERR,
+                                 "PIN quality check failed: %s", err_text);
+                  }
+                  pam_prompt( pamh, PAM_ERROR_MSG, NULL,
+                              _("Password policy violated: %s"),
+                              err_text );
+                  sleep( configuration->err_display_time );
+                  rv = PAM_AUTHTOK_ERR;
+              } else {
+                  rv = 0;
+              }
+          }
+#endif
+
+          if ( rv ) {
             if (clean_old_pass && old_pass) {
                 cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
@@ -1467,9 +1497,35 @@ static int pam_set_pin( pam_handle_t *pamh,
         return PAM_AUTHINFO_UNAVAIL;
     }
 
-    rv = pam_do_set_pin( pamh, ph, lowlevel, slot_num,
-                         configuration, old_pass,
-                         init_pin );
+#ifdef ENABLE_PWQUALITY
+    if ( configuration->pwquality_config ) {
+        void *auxerror;
+        configuration->pwq = pwquality_default_settings();
+        rv = pwquality_read_config( configuration->pwq,
+                                    configuration->pwquality_config,
+                                    &auxerror );
+        if ( rv ) {
+            const char *err_text = pwquality_strerror( NULL, 0, rv, auxerror );
+            ERR1("Error reading libpwquality config: %s", err_text);
+            if (!configuration->quiet) {
+                pam_syslog(pamh, LOG_ERR,
+                           "Error reading libpwquality config: %s",
+                           err_text);
+            }
+            rv = PAM_AUTHINFO_UNAVAIL;
+        }
+    }
+#endif
+
+    if ( rv == 0 ) {
+        rv = pam_do_set_pin( pamh, ph, lowlevel, slot_num,
+                             configuration, old_pass, init_pin );
+    }
+
+#ifdef ENABLE_PWQUALITY
+    if ( configuration->pwq )
+        pwquality_free_settings( configuration->pwq );
+#endif
 
     pkcs11_close_session( pamh, configuration, ph );
 
