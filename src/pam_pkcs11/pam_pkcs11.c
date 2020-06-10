@@ -879,13 +879,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
     rv = pkcs11_login(ph, password);
-    /* erase and free in-memory password data asap */
-	if (password && !pin_to_be_changed)
-	{
-		cleanse(password, strlen(password));
-		free(password);
-		password = NULL;
-	}
 
     if (rv != 0) {
       ERR1("open_pkcs11_login() failed: %s", get_error());
