@@ -74,6 +74,7 @@ PKCS11_EXTERN int sign_value(pkcs11_handle_t *h, cert_object_t *,
 PKCS11_EXTERN int get_random_value(unsigned char *data, int length);
 PKCS11_EXTERN int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass);
 PKCS11_EXTERN int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass);
+PKCS11_EXTERN void cleanse(void *ptr, size_t len);
 
 #undef PKCS11_EXTERN
 

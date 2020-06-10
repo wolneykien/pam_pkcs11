@@ -109,7 +109,7 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
      *response = strdup(resp[0].resp);
   }
   /* overwrite memory and release it */
-  memset(resp[0].resp, 0, strlen(resp[0].resp));
+  cleanse(resp[0].resp, strlen(resp[0].resp));
   free(&resp[0]);
   return PAM_SUCCESS;
 }
@@ -192,7 +192,7 @@ static int pam_get_pwd(pam_handle_t *pamh, char **pwd, char *text, int oitem, in
       return PAM_CRED_INSUFFICIENT;
     *pwd = strdup(resp[0].resp);
     /* overwrite memory and release it */
-    memset(resp[0].resp, 0, strlen(resp[0].resp));
+    cleanse(resp[0].resp, strlen(resp[0].resp));
     free(&resp[0]);
     /* save password if variable nitem is set */
     if ((nitem == PAM_AUTHTOK) || (nitem == PAM_OLDAUTHTOK)) {
@@ -723,7 +723,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         if ( rv != 0 ) {
 			release_pkcs11_module(ph);
             if ( password ) {
-                memset( password, 0, strlen(password) );
+                cleanse( password, strlen(password) );
                 free( password );
             }
 			return PAM_AUTH_ERR;
@@ -744,7 +744,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* erase and free in-memory password data asap */
 	if (password && !pin_to_be_changed)
 	{
-		memset(password, 0, strlen(password));
+		cleanse(password, strlen(password));
 		free(password);
 	}
     if (rv != 0) {
@@ -1098,7 +1098,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   return rv;
 
   /* quick and dirty fail exit point */
-  memset(password, 0, strlen(password));
+  cleanse(password, strlen(password));
   free(password); /* erase and free in-memory password data */
 
 auth_failed_nopw:
