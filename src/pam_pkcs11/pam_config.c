@@ -70,7 +70,8 @@ struct configuration_st configuration = {
     1,          /* reset_pin_low */
     1,          /* reset_pin_locked */
     0,          /* force_pin_change */
-	1			/* ask_pin */
+	1,			/* ask_pin */
+    0           /* change_pin_early */
 };
 
 #ifdef DEBUG_CONFIG
@@ -100,6 +101,7 @@ static void display_config (void) {
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
         DBG1("ask_pin %d",configuration.ask_pin);
+        DBG1("change_pin_early %d", configuration.change_pin_early);
 }
 #endif
 
@@ -163,6 +165,8 @@ static void parse_config_file(void) {
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
 	configuration.ask_pin =
 	    scconf_get_bool(root,"ask_pin",configuration.ask_pin);
+    configuration.change_pin_early =
+        scconf_get_bool(root, "change_pin_early", configuration.change_pin_early);
 	/* search pkcs11 module options */
 	pkcs11_mblocks = scconf_find_blocks(ctx,root,"pkcs11_module",configuration.pkcs11_module);
         if (!pkcs11_mblocks) {
