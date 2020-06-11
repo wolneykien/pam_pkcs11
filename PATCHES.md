@@ -14,6 +14,7 @@ The patch layout:
 * `snprintf`
 * `ask-pin`
 * `opensslconf`
+* `global-ca`
 * `blacklist`
 * `prompts`
 * `gost`
@@ -111,6 +112,12 @@ list is obtained from the token.
 ## `opensslconf`
 
 Setup OpenSSL with `CONFDIR "/openssl.cnf"` if that file exists.
+
+
+## `global-ca`
+
+Adds `global_ca` certificate policy to check the system-wide CA
+certificate list.
 
 
 ## `blacklist`
