@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "debug.h"
 #include "error.h"
 #include "cert_info.h"
@@ -1005,7 +1006,20 @@ struct pkcs11_handle_str {
 int crypto_init(cert_policy *policy)
 {
   /* arg is ignored for OPENSSL */
-  (void)policy;
+  (void) policy;
+  OPENSSL_config( NULL );
+  if (0 == access( CONFDIR "/openssl.cnf", F_OK )) {
+      // FIXME: This seems to parse the config twice in a row.
+      int ret = 0;
+      ret = CONF_modules_load_file( CONFDIR "/openssl.cnf",
+                                    NULL,
+                                    CONF_MFLAGS_DEFAULT_SECTION | \
+                                      CONF_MFLAGS_IGNORE_MISSING_FILE );
+      if ( ret != 1 ) {
+          set_error("Error loading OpenSSL configuration");
+          return 1;
+      }
+  }
   OpenSSL_add_all_algorithms();
   ERR_load_crypto_strings();
   return 0;
