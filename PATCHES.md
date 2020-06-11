@@ -10,6 +10,7 @@ The patch layout:
 * `setpin`
   * `pin-checks`
     * `isbc`
+    * `pwquality`
 * `snprintf`
 * `ask-pin`
 * `opensslconf`
@@ -74,6 +75,7 @@ This implements the `pam_sm_chauthtok()` PAM function using the
 `C_SetPin()` PKCS#11 call. Some refactoring of the password asking and
 password checking code is also here.
 
+
 ## `pin-checks`
 
 Is related to the `setpin` patch and adds a special **lowlevel**
@@ -85,6 +87,11 @@ The other `force_pin_change` configuration flag controls whether to
 switch the module into PIN-change mode after login when it's time to
 change the user's PIN (with the user of `CKF_USER_PIN_TO_BE_CHANGED`
 PKCS#11 flag).
+
+
+## `pwquality`
+
+Uses the `libpwquality` library to check the PIN-code streingth.
 
 
 ## `snprintf`
