@@ -1000,6 +1000,9 @@ struct pkcs11_handle_str {
   cert_object_t **certs;
   int cert_count;
   int current_slot;
+  char **bl_mfact;
+  char **bl_desc;
+  int bl_soft;
 };
 
 
@@ -1079,11 +1082,36 @@ int load_pkcs11_module(const char *module, pkcs11_handle_t **hp)
     free(h);
     return -1;
   }
+
+  h->bl_soft = 1; // Blacklist soft slots by default.
+  
   *hp = h;
   return 0;
 }
 
 static int
+slot_blacklisted( pkcs11_handle_t *h, CK_SLOT_INFO *sinfo )
+{
+    char **bl_mfact = h->bl_mfact;
+    while ( bl_mfact != NULL ) {
+        if ( 0 == strncmp(sinfo->manufacturerID, *bl_mfact, 64) ) {
+            return 1;
+        }
+        bl_mfact++;
+    }
+
+    char **bl_desc = h->bl_desc;
+    while ( bl_desc != NULL ) {
+        if ( 0 == strncmp(sinfo->slotDescription, *bl_desc, 32) ) {
+            return 1;
+        }
+        bl_desc++;
+    }
+    
+    return 0;
+}
+
+int
 refresh_slots(pkcs11_handle_t *h)
 {
   CK_ULONG i, slot_count;
@@ -1145,11 +1173,14 @@ refresh_slots(pkcs11_handle_t *h)
     CK_TOKEN_INFO tinfo;
     CK_RV rv;
 
+    h->slots[i].token_present = FALSE;
+    memset(h->slots[i].label, 0, 32);
+
     DBG1("slot %ld:", i + 1);
     rv = h->fl->C_GetSlotInfo(h->slots[i].id, &sinfo);
     if (rv != CKR_OK) {
-      set_error("C_GetSlotInfo() failed: 0x%08lX", rv);
-      return -1;
+      DBG1("C_GetSlotInfo() failed: 0x%08lX", rv);
+      continue;
     }
 
     (void) memcpy(h->slots[i].slotDescription, sinfo.slotDescription,
@@ -1158,27 +1189,47 @@ refresh_slots(pkcs11_handle_t *h)
     DBG1("- description: %.64s", sinfo.slotDescription);
     DBG1("- manufacturer: %.32s", sinfo.manufacturerID);
     DBG1("- flags: %04lx", sinfo.flags);
+    DBG2("- HW version: %02x.%02x", sinfo.hardwareVersion.major, sinfo.hardwareVersion.minor);
+    DBG2("- FW version: %02x.%02x", sinfo.firmwareVersion.major, sinfo.firmwareVersion.minor);
+    
     if (sinfo.flags & CKF_TOKEN_PRESENT) {
+      if ( h->bl_soft && !(sinfo.flags & CKF_HW_SLOT) ) {
+          DBG("Skip soft slot as requested");
+          continue;
+      }
+      if ( slot_blacklisted(h, &sinfo) ) {
+          DBG("Skip blacklisted slot");
+          continue;
+      }
       DBG("- token:");
       rv = h->fl->C_GetTokenInfo(h->slots[i].id, &tinfo);
       if (rv != CKR_OK) {
-        set_error("C_GetTokenInfo() failed: 0x%08lX", rv);
-        return -1;
+        DBG1("C_GetTokenInfo() failed: 0x%08lX", rv);
+        continue;
       }
       DBG1("  - label: %.32s", tinfo.label);
       DBG1("  - manufacturer: %.32s", tinfo.manufacturerID);
       DBG1("  - model: %.16s", tinfo.model);
       DBG1("  - serial: %.16s", tinfo.serialNumber);
       DBG1("  - flags: %04lx", tinfo.flags);
+      
       h->slots[i].token_present = TRUE;
       memcpy(h->slots[i].label, tinfo.label, 32);
       for (j = 31; h->slots[i].label[j] == ' '; j--) h->slots[i].label[j] = 0;
     }
   }
+  
   return 0;
 }
 
-int init_pkcs11_module(pkcs11_handle_t *h,int flag)
+void set_slot_blacklist( pkcs11_handle_t *h, char **bl_mfact, char **bl_desc, int bl_soft )
+{
+    h->bl_mfact = bl_mfact;
+    h->bl_desc = bl_desc;
+    h->bl_soft = bl_soft;
+}
+
+int init_pkcs11_module(pkcs11_handle_t *h, int flag)
 {
   int rv;
   CK_ULONG i;

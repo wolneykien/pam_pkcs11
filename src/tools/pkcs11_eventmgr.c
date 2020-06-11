@@ -428,18 +428,21 @@ static struct SlotStatusStr *get_token_status(CK_SLOT_ID slotID)
 static int get_a_token(void)
 {
 	int rv;
-	unsigned long num_tokens = 0;
-	/* get Number of of slots with valid tokens */
-	rv = ph->fl->C_GetSlotList(TRUE, NULL, &num_tokens);
-	if (rv != CKR_OK)
-	{
-		DBG1("C_GetSlotList() failed: %x", rv);
-		return CARD_ERROR;
-	}
-	DBG1("Found %ld token(s)", num_tokens);
-	if (num_tokens > 0)
-		return CARD_PRESENT;
-	return CARD_NOT_PRESENT;
+	unsigned int slot_num;
+    rv = refresh_slots( ph );
+	if (rv != 0) {
+        DBG("Error while searching for tokens!");
+        return CARD_NOT_PRESENT;
+    }
+    
+    rv = find_slot_by_number( ph, 0, &slot_num);
+    if (rv != 0) {
+        DBG("No tokens found");
+        return CARD_NOT_PRESENT;
+    } else {
+        DBG1("Found a token 0x%x", slot_num);
+        return CARD_PRESENT;
+    }
 }
 #endif
 
