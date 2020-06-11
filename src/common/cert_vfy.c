@@ -341,6 +341,16 @@ static X509_STORE * setup_store(cert_policy *policy) {
     return NULL;
   }
 
+  /* if needed add default paths */
+  if ( (policy->global_ca_policy) ) {
+	DBG("Adding default paths to x509_store");
+	rv = X509_STORE_set_default_paths(store);
+	if (!rv) {
+      X509_STORE_free(store);
+      set_error("X509_STORE_set_default_paths() failed: %s", ERR_error_string(ERR_get_error(), NULL));
+      return NULL;
+	}
+  }
   /* if needed add hash_dir lookup methods */
   if ( (is_dir(policy->ca_dir)>0) || (is_dir(policy->crl_dir)>0) ) {
     DBG("Adding hashdir lookup to x509_store");
@@ -411,7 +421,7 @@ int verify_certificate(X509 * x509, cert_policy *policy)
   X509_STORE_CTX *ctx;
 
   /* if neither ca nor crl check are requested skip */
-  if ( (policy->ca_policy==0) && (policy->crl_policy==CRLP_NONE) ) {
+  if ( (policy->global_ca_policy==0) && (policy->ca_policy==0) && (policy->crl_policy==CRLP_NONE) ) {
 	DBG("Neither CA nor CRL check requested. CertVrfy() skipped");
 	return 1;
   }
