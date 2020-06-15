@@ -1281,7 +1281,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if (!old_pass) {
             /* Old PIN */
             snprintf(password_prompt, sizeof(password_prompt),
-                     _("Old %s PIN: "), _(configuration->token_type));
+                     init_pin ? _("%s SO PIN: ") : _("Old %s PIN: "),
+                     _(configuration->token_type));
             rv = pam_get_pwd(pamh, &old_pass, password_prompt,
                              0, PAM_AUTHTOK);
 
