@@ -36,44 +36,7 @@
 * configuration related functions
 */
 
-struct configuration_st configuration = {
-	CONFDIR "/pam_pkcs11.conf",	/* char * config_file; */
-	NULL,				/* scconf_context *ctx; */
-        0,				/* int debug; */
-        0,				/* int nullok; */
-        0,				/* int try_first_pass; */
-        0,				/* int use_first_pass; */
-        0,				/* int use_authok; */
-        0,				/* int card_only; */
-        0,				/* int wait_for_card; */
-        "default", 			/* const char *pkcs11_module; */
-        CONFDIR "/pkcs11_module.so",/* const char *pkcs11_module_path; */
-        NULL,                           /* screen savers */
-        NULL,			/* slot_description */
-        -1,				/* int slot_num; */
-	0,				/* support threads */
-	/* cert policy; */
-        {
-		0,
-		0,
-		CRLP_NONE,
-		0,
-		CONFDIR "/cacerts",
-		CONFDIR "/crls",
-		CONFDIR "/nssdb",
-		OCSP_NONE
-	},
-	N_("Smart card"),			/* token_type */
-	NULL,				/* char *username */
-	0,                               /* int quiet */
-	0,			/* err_display_time */
-    5,          /* pin_count_low */
-    1,          /* reset_pin_low */
-    1,          /* reset_pin_locked */
-    0,          /* force_pin_change */
-	1,			/* ask_pin */
-    0           /* change_pin_early */
-};
+struct configuration_st configuration;
 
 #ifdef DEBUG_CONFIG
 static void display_config (void) {
@@ -108,14 +71,222 @@ static void display_config (void) {
 #ifdef ENABLE_PWQUALITY
         DBG1("pwquality_config %s",configuration.pwquality_config);
 #endif
+
+        DBG("--- Prompts ---");
+        DBG1("start_auth: %s", configuration.prompts.start_auth);
+        DBG1("insert_named: %s", configuration.prompts.insert_named);
+        DBG1("insert: %s", configuration.prompts.insert);
+        DBG1("no_card: %s", configuration.prompts.no_card);
+        DBG1("no_card_err: %s", configuration.prompts.no_card_err);
+        DBG1("found: %s", configuration.prompts.found);
+        DBG1("login_failed: %s", configuration.prompts.login_failed);
+        DBG1("welcome: %s", configuration.prompts.welcome);
+        DBG1("welcome_locked: %s", configuration.prompts.welcome_locked);
+        DBG1("wrong_pin: %s", configuration.prompts.wrong_pin);
+        DBG1("wrong_pin_locked: %s", configuration.prompts.wrong_pin_locked);
+        DBG1("no_cert: %s", configuration.prompts.no_cert);
+        DBG1("cert_verif: %s", configuration.prompts.cert_verif);
+        DBG1("cert_expired: %s", configuration.prompts.cert_expired);
+        DBG1("cert_not_yet: %s", configuration.prompts.cert_not_yet);
+        DBG1("cert_inv_sig: %s", configuration.prompts.cert_inv_sig);
+        DBG1("cert_inv: %s", configuration.prompts.cert_inv);
+        DBG1("no_user_match: %s", configuration.prompts.no_user_match);
+        DBG1("no_cert_match: %s", configuration.prompts.no_cert_match);
+        DBG1("pin_prompt: %s", configuration.prompts.pin_prompt);
+        DBG1("pin_read_err: %s", configuration.prompts.pin_read_err);
+        DBG1("empty_pin_err: %s", configuration.prompts.empty_pin_err);
+        DBG1("enter_pin_pinpad: %s", configuration.prompts.enter_pin_pinpad);
+        DBG1("checking_sig: %s", configuration.prompts.checking_sig);
+        DBG1("sig_failed: %s", configuration.prompts.sig_failed);
+        DBG1("sig_verif_failed: %s", configuration.prompts.sig_verif_failed);
+        DBG1("enter_old_pin: %s", configuration.prompts.enter_old_pin);
+        DBG1("enter_new_pin: %s", configuration.prompts.enter_new_pin);
+        DBG1("confirm_pin: %s", configuration.prompts.confirm_pin);
+        DBG1("confirm_pin_mismatch: %s", configuration.prompts.confirm_pin_mismatch);
+        DBG1("change_on_pinpad: %s", configuration.prompts.change_on_pinpad);
+        DBG1("pin_change_err: %s", configuration.prompts.pin_change_err);
+        DBG1("pin_change_err_locked: %s", configuration.prompts.pin_change_err_locked);
+        DBG1("pin_locked: %s",configuration.pin_locked);
+        DBG1("pin_final_try: %s",configuration.pin_final_try);
+        DBG1("were_incorrect: %s",configuration.were_incorrect);
+        DBG1("pin_n_only: %s", configuration.prompts.pin_n_only);
+        DBG1("pin_n_left: %s", configuration.prompts.pin_n_left);
+        DBG1("pin_1_only: %s", configuration.prompts.pin_n_only);
+        DBG1("pin_1_left: %s", configuration.prompts.pin_n_left);
+        DBG1("pin_to_be_changed: %s",configuration.pin_to_be_changed);
+        DBG1("pin_expired: %s",configuration.pin_expired);
+        DBG1("changing_user_pin: %s",configuration.changing_user_pin);
+        DBG1("user_pin_reset: %s",configuration.user_pin_reset);
+        DBG1("changing_user_pin_locked: %s",configuration.changing_user_pin_locked);
+        //DBG1(": %s", configuration.prompts.);
+#ifdef ENABLE_PWQUALITY
+        DBG1("pwquality_err: %s",configuration.prompts.pwquality_err);
+#endif
 }
 #endif
 
 /*
+Sets the default prompt values.
+*/
+static void init_prompts() {
+    configuration.prompts.start_auth = "Smartcard authentication starts";
+    configuration.prompts.insert_named = "Please insert your smart card called \"%.32s\".";
+    configuration.prompts.insert = "Please insert your smart card.";
+    configuration.prompts.no_card = "No smartcard found";
+    configuration.prompts.no_card_err = "Error 2308: No smartcard found";
+    configuration.prompts.found = "%s found.";
+    configuration.prompts.login_failed = "Error 2314: Slot login failed";
+    configuration.prompts.welcome = "Welcome %.32s!";
+    configuration.prompts.welcome_locked = "Welcome %.32s! PIN is locked!";
+    configuration.prompts.wrong_pin = "Error 2320: Wrong smartcard PIN";
+    configuration.prompts.wrong_pin_locked = "Error 2320.3: Wrong smartcard PIN. The PIN is locked now!";
+    configuration.prompts.no_cert = "Error 2322: No certificate found";
+    configuration.prompts.cert_verif = "verifying certificate";
+    configuration.prompts.cert_expired = "Error 2324: Certificate has expired";
+    configuration.prompts.cert_not_yet = "Error 2326: Certificate not yet valid";
+    configuration.prompts.cert_inv_sig = "Error 2328: Certificate signature invalid";
+    configuration.prompts.cert_inv = "Error 2330: Certificate invalid";
+    configuration.prompts.no_user_match = "Error 2334: No matching user";
+    configuration.prompts.no_cert_match = "Error 2336: No matching certificate found";
+    configuration.prompts.pin_prompt = "%s PIN: ";
+    configuration.prompts.pin_read_err = "Error 2316: password could not be read";
+    configuration.prompts.empty_pin_err = "Error 2318: Empty smartcard PIN not allowed.";
+    configuration.prompts.enter_pin_pinpad = "Enter your %s PIN on the pinpad";
+    configuration.prompts.checking_sig = "Checking signature";
+    configuration.prompts.sig_failed = "Error 2340: Signing failed";
+    configuration.prompts.sig_verif_failed = "Error 2342: Verifying signature failed";
+    configuration.prompts.enter_old_pin = "Old %s PIN: ";
+    configuration.prompts.enter_new_pin = "New %s PIN: ";
+    configuration.prompts.confirm_pin = "Confirm new PIN: ";
+    configuration.prompts.confirm_pin_mismatch = "Confirm PIN mismatch";
+    configuration.prompts.change_on_pinpad = "Now use the pinpad to change your %s PIN";
+    configuration.prompts.pin_change_err = configuration.prompts.wrong_pin;
+    configuration.prompts.pin_change_err_locked = configuration.prompts.wrong_pin_locked;
+    configuration.prompts.pin_locked = "WARNING! There were incorrect login attempts! The PIN is locked now!";
+    configuration.prompts.pin_final_try = "WARNING! PIN FINAL TRY!!!";
+    configuration.prompts.were_incorrect = "WARNING! There were incorrect login attempts!";
+    configuration.prompts.pin_n_only = "WARNING! There were incorrect login attempts! Only %i attempts left!";
+    configuration.prompts.pin_1_only = "WARNING! There were incorrect login attempts! Only 1 attempt left!";
+    configuration.prompts.pin_n_left = "WARNING! There were incorrect login attempts! %i attempts left!";
+    configuration.prompts.pin_1_left = "WARNING! There were incorrect login attempts! 1 attempt left!";
+    configuration.prompts.pin_to_be_changed = "User PIN needs to be changed";
+    configuration.prompts.pin_expired = "User PIN has expired and needs to be changed";
+    configuration.prompts.changing_user_pin = "Changing the user PIN";
+    configuration.prompts.user_pin_reset = "User PIN reset";
+    configuration.prompts.changing_user_pin_locked = "Changing the user PIN is blocked";
+    //configuration.prompts. = ;
+#ifdef ENABLE_PWQUALITY
+    configuration.prompts.pwquality_err = "Password policy violated: %s";
+#endif
+}
+
+/*
+Sets the default config values.
+*/
+static void init_configuration() {
+    memset(&configuration, 0, sizeof(configuration));
+    configuration.config_file = CONFDIR "/pam_pkcs11.conf";
+    configuration.pkcs11_module = "default";
+    configuration.pkcs11_modulepath = CONFDIR "/pkcs11_module.so";
+    configuration.slot_num = -1;
+
+    configuration.policy.crl_policy = CRLP_NONE;
+    configuration.policy.ca_dir = CONFDIR "/cacerts";
+    configuration.policy.crl_dir = CONFDIR "/crls";
+    configuration.policy.nss_dir = CONFDIR "/nssdb";
+    configuration.policy.ocsp_policy = OCSP_NONE;
+
+    configuration.token_type = N_("Smart card");
+
+    configuration.ask_pin = 1;
+    configuration.pin_count_low = 5;
+    configuration.reset_pin_low = 1;
+    configuration.reset_pin_locked = 1;
+
+    init_prompts();
+}
+
+# define PARSE_PROMPT(key)                                      \
+    configuration.prompts.key =                                 \
+        scconf_get_str(prompts_mblock,                          \
+                       service ? #key : "prompt_" #key,         \
+                       configuration.prompts.key)
+
+/*
+Parses the configurable prompts
+*/
+static void parse_prompts(scconf_context *ctx, const scconf_block *root,
+                          const char *service)
+{
+    const scconf_block *prompts_mblock = root;
+    scconf_block **prompts_mblocks;
+
+    if (service) {
+        prompts_mblocks = scconf_find_blocks(ctx, root, "prompts", service);
+        if (prompts_mblocks) {
+            prompts_mblock = prompts_mblocks[0];
+            free(prompts_mblocks);
+        } else {
+            return;
+        }
+    }
+    
+    PARSE_PROMPT(start_auth);
+    PARSE_PROMPT(insert_named);
+    PARSE_PROMPT(insert);
+    PARSE_PROMPT(no_card);
+    PARSE_PROMPT(no_card_err);
+    PARSE_PROMPT(found);
+    PARSE_PROMPT(login_failed);
+    PARSE_PROMPT(welcome);
+    PARSE_PROMPT(welcome_locked);
+    PARSE_PROMPT(wrong_pin);
+    PARSE_PROMPT(wrong_pin_locked);
+    PARSE_PROMPT(no_cert);
+    PARSE_PROMPT(cert_verif);
+    PARSE_PROMPT(cert_expired);
+    PARSE_PROMPT(cert_not_yet);
+    PARSE_PROMPT(cert_inv_sig);
+    PARSE_PROMPT(cert_inv);
+    PARSE_PROMPT(no_user_match);
+    PARSE_PROMPT(no_cert_match);
+    PARSE_PROMPT(pin_prompt);
+    PARSE_PROMPT(pin_read_err);
+    PARSE_PROMPT(empty_pin_err);
+    PARSE_PROMPT(enter_pin_pinpad);
+    PARSE_PROMPT(checking_sig);
+    PARSE_PROMPT(sig_failed);
+    PARSE_PROMPT(sig_verif_failed);
+    PARSE_PROMPT(enter_old_pin);
+    PARSE_PROMPT(enter_new_pin);
+    PARSE_PROMPT(confirm_pin);
+    PARSE_PROMPT(confirm_pin_mismatch);
+    PARSE_PROMPT(change_on_pinpad);
+    PARSE_PROMPT(pin_change_err);
+    PARSE_PROMPT(pin_change_err_locked);
+    PARSE_PROMPT(pin_locked);
+    PARSE_PROMPT(pin_final_try);
+    PARSE_PROMPT(were_incorrect);
+    PARSE_PROMPT(pin_n_only);
+    PARSE_PROMPT(pin_n_left);
+    PARSE_PROMPT(pin_1_only);
+    PARSE_PROMPT(pin_1_left);
+    PARSE_PROMPT(pin_to_be_changed);
+    PARSE_PROMPT(pin_expired);
+    PARSE_PROMPT(changing_user_pin);
+    PARSE_PROMPT(user_pin_reset);
+    PARSE_PROMPT(changing_user_pin_locked);
+    /* PARSE_PROMPT(...); */
+#ifdef ENABLE_PWQUALITY
+    PARSE_PROMPT(pwquality_err);
+#endif
+}
+
+/*
 parse configuration file
 */
-static void parse_config_file(void) {
-	scconf_block **pkcs11_mblocks,*pkcs11_mblk;
+static void parse_config_file(const char *service) {
+	scconf_block **pkcs11_mblocks, *pkcs11_mblk;
 	const scconf_list *mapper_list;
 	const scconf_list *policy_list;
  	const scconf_list *screen_saver_list;
@@ -142,9 +313,12 @@ static void parse_config_file(void) {
 		scconf_get_int(root,"err_display_time",configuration.err_display_time);
 	configuration.nullok =
 	    scconf_get_bool(root,"nullok",configuration.nullok);
+	configuration.verbose = scconf_get_bool(root, "verbose", configuration.verbose);
 	configuration.quiet = scconf_get_bool(root,"quiet",configuration.quiet);
-	if (configuration.quiet)
+	if (configuration.quiet) {
 	    set_debug_level(-2);
+        configuration.verbose = 0;
+    }
 	configuration.debug =
 	    scconf_get_bool(root,"debug",configuration.debug);
 	if (configuration.debug)
@@ -267,6 +441,12 @@ static void parse_config_file(void) {
 	   return;
 	}
 	/* load_mappers(ctx); */
+
+    /* Load promt strings */
+    parse_prompts(ctx, root, NULL);
+    parse_prompts(ctx, root, "default");
+    parse_prompts(ctx, root, service);
+
 	/* that's all folks: return */
 	return;
 }
@@ -277,7 +457,9 @@ static void parse_config_file(void) {
 * 2- configuration file
 * 3- commandline arguments options
 */
-struct configuration_st *pk_configure( int argc, const char **argv ) {
+struct configuration_st *pk_configure( const char *service,
+                                       int argc, const char **argv ) {
+	init_configuration();
 	int i;
 	/* try to find a configuration file entry */
 	for (i = 0; i < argc; i++) {
@@ -288,7 +470,7 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
     	}
 	DBG1("Using config file %s",configuration.config_file);
 	/* parse configuration file */
-	parse_config_file();
+	parse_config_file(service);
 #ifdef DEBUG_CONFIG
 	display_config();
 #endif
@@ -336,10 +518,15 @@ struct configuration_st *pk_configure( int argc, const char **argv ) {
 		    set_debug_level(0);
 		continue;
 	   }
-	   if (strcmp("quiet", argv[i]) == 0) {
-		configuration.quiet = 1;
-		set_debug_level(-2);
+	   if (strcmp("verbose", argv[i]) == 0) {
+		configuration.verbose = 1;
 		continue;
+	   }
+	   if (strcmp("quiet", argv[i]) == 0) {
+           configuration.quiet = 1;
+           configuration.verbose = 0;
+           set_debug_level(-2);
+           continue;
 	   }
 	   if (strstr(argv[i],"pkcs11_module=") ) {
 		configuration.pkcs11_module = argv[i] + sizeof("pkcs11_module=")-1;
