@@ -62,6 +62,7 @@ static void display_config (void) {
         DBG1("err_display_time %d", configuration.err_display_time);
         DBG1("pin_count_low %d",configuration.pin_count_low);
         DBG1("force_pin_change %d",configuration.force_pin_change);
+        DBG1("default_username %s",configuration.default_username);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
         DBG1("ask_pin %d",configuration.ask_pin);
@@ -339,6 +340,8 @@ static void parse_config_file(const char *service) {
 	    scconf_get_int(root,"pin_count_low",configuration.pin_count_low);
 	configuration.force_pin_change =
 	    scconf_get_int(root,"force_pin_change",configuration.force_pin_change);
+	configuration.default_username =
+	    scconf_get_str(root, "default_username", configuration.default_username);
 	configuration.reset_pin_low =
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
 	configuration.reset_pin_locked =
