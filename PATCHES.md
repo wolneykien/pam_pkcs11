@@ -7,6 +7,7 @@ The patch layout:
 * `eventmgr-card-error`
 * `oid-mapper`
 * `userdesc`
+* `default-user`
 * `setpin`
   * `pin-checks`
     * `isbc`
@@ -68,6 +69,13 @@ The following new options are also supported:
 
 Adds `find_user_desc()` and `match_user_desc()` functions allowing to
 get a user description data along with the login.
+
+
+## `default-user`
+
+The Patch adds `default_username` configuration parameter providing
+a default value for `PAM_USER`. The module doesn't prompt for a user
+name if default is configured.
 
 
 ## `setpin`
