@@ -77,6 +77,7 @@ static void display_config (void) {
 
         DBG("--- Prompts ---");
         DBG1("start_auth: %s", configuration.prompts.start_auth);
+        DBG1("auth_cancelled: %s", configuration.prompts.auth_cancelled);
         DBG1("insert_named: %s", configuration.prompts.insert_named);
         DBG1("insert: %s", configuration.prompts.insert);
         DBG1("no_card: %s", configuration.prompts.no_card);
@@ -138,6 +139,7 @@ Sets the default prompt values.
 */
 static void init_prompts() {
     configuration.prompts.start_auth = "Smartcard authentication starts";
+    configuration.prompts.auth_cancelled = "Smartcard authentication cancelled";
     configuration.prompts.insert_named = "Please insert your smart card called \"%.32s\".";
     configuration.prompts.insert = "Please insert your smart card.";
     configuration.prompts.no_card = "No smartcard found";
@@ -248,6 +250,7 @@ static void parse_prompts(scconf_context *ctx, const scconf_block *root,
     }
     
     PARSE_PROMPT(start_auth);
+    PARSE_PROMPT(auth_cancelled);
     PARSE_PROMPT(insert_named);
     PARSE_PROMPT(insert);
     PARSE_PROMPT(no_card);

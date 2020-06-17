@@ -31,6 +31,7 @@
 
 struct prompts_st {
     const char *start_auth;
+    const char *auth_cancelled;
     const char *insert_named;
     const char *insert;
     const char *no_card;
