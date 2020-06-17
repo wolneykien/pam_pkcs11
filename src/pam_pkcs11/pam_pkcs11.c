@@ -1368,7 +1368,9 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if (!old_pass) {
             /* Old PIN */
             snprintf(password_prompt, sizeof(password_prompt),
-                     _(configuration->prompts.enter_old_pin),
+                     init_pin ?
+                       _(configuration->prompts.enter_so_pin) :
+                       _(configuration->prompts.enter_old_pin),
                      _(configuration->token_type));
             rv = pam_get_pwd(pamh, &old_pass, password_prompt,
                              0, PAM_AUTHTOK);
@@ -1536,10 +1538,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
         if (final_try) {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _(configuration->prompts.pin_change_err_locked));
+                       init_pin ?
+                         _(configuration->prompts.so_pin_change_err_locked) :
+                         _(configuration->prompts.pin_change_err_locked));
         } else {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _(configuration->prompts.pin_change_err));
+                       init_pin ?
+                         _(configuration->prompts.so_pin_change_err) :
+                         _(configuration->prompts.pin_change_err));
         }
 
         sleep(configuration->err_display_time);

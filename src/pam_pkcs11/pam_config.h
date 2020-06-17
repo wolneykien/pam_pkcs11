@@ -57,12 +57,15 @@ struct prompts_st {
     const char *sig_failed;
     const char *sig_verif_failed;
     const char *enter_old_pin;
+    const char *enter_so_pin;
     const char *enter_new_pin;
     const char *confirm_pin;
     const char *confirm_pin_mismatch;
     const char *change_on_pinpad;
     const char *pin_change_err;
     const char *pin_change_err_locked;
+    const char *so_pin_change_err;
+    const char *so_pin_change_err_locked;
     const char *pin_locked;
     const char *pin_final_try;
     const char *were_incorrect;
