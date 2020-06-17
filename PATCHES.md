@@ -4,6 +4,7 @@ The patch layout:
 
 * `ignore-no-card`
 * `systemd`
+* `syslog`
 * `eventmgr-card-error`
 * `oid-mapper`
 * `userdesc`
@@ -43,6 +44,13 @@ should be used _along_ with `card_only` flag.
 ## `systemd`
 
 A simple patch adding the `pkcs11-eventmgr.service` unit.
+
+
+## `syslog`
+
+Adds token label and serial to the syslog messages.
+Also, introduces `pam_syslog()` and `pam_vsyslog()` wrappers for
+Open PAM.
 
 
 ## `eventmgr-card-error`
