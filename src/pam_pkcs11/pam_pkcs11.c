@@ -235,20 +235,44 @@ static int check_pwd( pam_handle_t *pamh,
 #endif
 
     /* check password length */
-    if ( !configuration->nullok && strlen(password) == 0 ) {
-        cleanse(password, strlen(password));
-        pam_syslog(pamh, LOG_ERR,
-                   "password length is zero but the 'nullok' " \
-                   "argument was not defined.");
+	int pwdlen = strlen(password);
+	int ret = 0;
+
+	if ( configuration->pin_len_max &&
+		 (pwdlen > configuration->pin_len_max) )
+	{
         if (!configuration->quiet) {
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _(configuration->prompts.empty_pin_err));
+            pam_syslog(pamh, LOG_ERR,
+						"password is too long");
         }
-        sleep(configuration->err_display_time);
-        return PAM_AUTH_ERR;
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _(configuration->prompts.pin_too_long_err));
+        ret = PAM_AUTH_ERR;
+	} else if ( pwdlen < configuration->pin_len_min ) {
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "password is too short");
+        }
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _(configuration->prompts.pin_too_short_err));
+        ret = PAM_AUTH_ERR;
+	} else if ( !configuration->nullok && pwdlen == 0 ) {
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "password length is zero but 'nullok' "  \
+                       "isn't set.");
+        }
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _(configuration->prompts.empty_pin_err));
+        ret = PAM_AUTH_ERR;
     }
 
-    return 0;
+	if (ret) {
+        sleep(configuration->err_display_time);
+		cleanse(password, strlen(password));
+	}
+
+    return ret;
 }
 
 static int pkcs11_module_load_init( pam_handle_t *pamh,

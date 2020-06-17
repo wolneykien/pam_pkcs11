@@ -42,6 +42,8 @@ struct configuration_st configuration;
 static void display_config (void) {
         DBG1("debug %d",configuration.debug);
         DBG1("nullok %d",configuration.nullok);
+        DBG1("pin_len_min %d",configuration.pin_len_min);
+        DBG1("pin_len_max %d",configuration.pin_len_max);
         DBG1("try_first_pass %d",configuration.try_first_pass);
         DBG1("use_first_pass %d", configuration.use_first_pass);
         DBG1("use_authok %d", configuration.use_authok);
@@ -96,6 +98,8 @@ static void display_config (void) {
         DBG1("pin_prompt: %s", configuration.prompts.pin_prompt);
         DBG1("pin_read_err: %s", configuration.prompts.pin_read_err);
         DBG1("empty_pin_err: %s", configuration.prompts.empty_pin_err);
+        DBG1("pin_too_short_err: %s", configuration.prompts.pin_too_short_err);
+        DBG1("pin_too_long_err: %s", configuration.prompts.pin_too_long_err);
         DBG1("enter_pin_pinpad: %s", configuration.prompts.enter_pin_pinpad);
         DBG1("checking_sig: %s", configuration.prompts.checking_sig);
         DBG1("sig_failed: %s", configuration.prompts.sig_failed);
@@ -155,6 +159,8 @@ static void init_prompts() {
     configuration.prompts.pin_prompt = "%s PIN: ";
     configuration.prompts.pin_read_err = "Error 2316: password could not be read";
     configuration.prompts.empty_pin_err = "Error 2318: Empty smartcard PIN not allowed.";
+    configuration.prompts.pin_too_short_err = "Error 2318: PIN is too short.";
+    configuration.prompts.pin_too_long_err = "Error 2318: PIN is too long.";
     configuration.prompts.enter_pin_pinpad = "Enter your %s PIN on the pinpad";
     configuration.prompts.checking_sig = "Checking signature";
     configuration.prompts.sig_failed = "Error 2340: Signing failed";
@@ -196,6 +202,9 @@ static void init_configuration() {
     configuration.pkcs11_module = "default";
     configuration.pkcs11_modulepath = CONFDIR "/pkcs11_module.so";
     configuration.slot_num = -1;
+
+    configuration.pin_len_min = 0;
+    configuration.pin_len_max = 100;
 
     configuration.policy.crl_policy = CRLP_NONE;
     configuration.policy.ca_dir = CONFDIR "/cacerts";
@@ -260,6 +269,8 @@ static void parse_prompts(scconf_context *ctx, const scconf_block *root,
     PARSE_PROMPT(pin_prompt);
     PARSE_PROMPT(pin_read_err);
     PARSE_PROMPT(empty_pin_err);
+    PARSE_PROMPT(pin_too_short_err);
+    PARSE_PROMPT(pin_too_long_err);
     PARSE_PROMPT(enter_pin_pinpad);
     PARSE_PROMPT(checking_sig);
     PARSE_PROMPT(sig_failed);
@@ -323,6 +334,10 @@ static void parse_config_file(const char *service) {
 		scconf_get_int(root,"err_display_time",configuration.err_display_time);
 	configuration.nullok =
 	    scconf_get_bool(root,"nullok",configuration.nullok);
+	configuration.pin_len_min =
+	    scconf_get_int(root,"pin_len_min",configuration.pin_len_min);
+	configuration.pin_len_max =
+	    scconf_get_int(root,"pin_len_max",configuration.pin_len_max);
 	configuration.verbose = scconf_get_bool(root, "verbose", configuration.verbose);
 	configuration.quiet = scconf_get_bool(root,"quiet",configuration.quiet);
 	if (configuration.quiet) {

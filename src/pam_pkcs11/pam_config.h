@@ -52,6 +52,8 @@ struct prompts_st {
     const char *pin_prompt;
     const char *pin_read_err;
     const char *empty_pin_err;
+    const char *pin_too_short_err;
+    const char *pin_too_long_err;
     const char *enter_pin_pinpad;
     const char *checking_sig;
     const char *sig_failed;
@@ -88,6 +90,8 @@ struct configuration_st {
 	scconf_context *ctx;
 	int debug;
 	int nullok;
+	int pin_len_min;
+	int pin_len_max;
 	int try_first_pass;
 	int use_first_pass;
 	int use_authok;
