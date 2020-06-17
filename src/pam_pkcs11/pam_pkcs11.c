@@ -778,25 +778,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
             pam_syslog(pamh, LOG_ERR,
                        "verify_certificate() failed: %s", get_error());
 		}
-		switch (rv) {
-			case -2: // X509_V_ERR_CERT_HAS_EXPIRED:
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-					_(configuration->prompts.cert_expired));
-				break;
-			case -3: // X509_V_ERR_CERT_NOT_YET_VALID:
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-					_(configuration->prompts.cert_not_yet));
-				break;
-			case -4: // X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-					_(configuration->prompts.cert_inv_sig));
-				break;
-			default:
-				pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-					_(configuration->prompts.cert_inv));
-				break;
-		}
-		sleep(configuration->err_display_time);
         continue; /* try next certificate */
     } else if (cert_rv != 1) {
         ERR1("verify_certificate() failed: %s", get_error());
