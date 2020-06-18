@@ -525,6 +525,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* find a valid and matching certificates */
   int cert_rv = 0;
+  char *user_desc = NULL;
   for (i = 0; i < ncert; i++) {
     X509 *x509 = (X509 *)get_X509_certificate(cert_list[i]);
     if (!x509 ) continue; /* sanity check */
@@ -556,7 +557,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	name from certificate
       */
 	DBG("Empty login: try to deduce from certificate");
-	user=find_user(x509);
+	user = find_user_desc(x509, &user_desc);
 	if (!user) {
           ERR2("find_user() failed: %s on cert #%d", get_error(),i+1);
           if (!configuration->quiet)
@@ -583,7 +584,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     } else {
       /* User provided:
          check whether the certificate matches the user */
-        rv = match_user(x509, user);
+        rv = match_user_desc(x509, user, &user_desc);
         if (rv < 0) { /* match error; abort and return */
           ERR1("match_user() failed: %s", get_error());
 			if (!configuration->quiet) {
@@ -653,8 +654,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   } else if (rv) {
     /* get password */
-	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		_("Welcome %.32s!"), get_slot_tokenlabel(ph));
+    if (user_desc && strlen(user_desc) > 0) {
+        pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("Welcome %.32s, %s!"),
+                   get_slot_tokenlabel(ph));
+    } else {
+        pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("Welcome %.32s!"),
+                   get_slot_tokenlabel(ph));
+    }
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
