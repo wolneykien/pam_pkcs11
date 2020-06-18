@@ -123,12 +123,18 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
 
 #if !defined(HAVE_SECURITY_PAM_EXT_H) || defined(OPENPAM)
 static void
+pam_vsyslog(pam_handle_t *pamh, int priority, const char *fmt, va_list args)
+{
+    vsyslog(priority, fmt, args);
+}
+
+static void
 pam_syslog(pam_handle_t *pamh, int priority, const char *fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    vsyslog(priority, fmt, ap);
+    pam_vsyslog(priority, fmt, ap);
     va_end(ap);
 }
 
@@ -155,6 +161,27 @@ static int pam_pkcs11_prompt(const pam_handle_t *pamh, int style, char **resp, c
   return ret;
 }
 #endif
+
+static void
+_pam_syslog(pam_handle_t *pamh, int priority, const char *fmt, ...)
+{
+    va_list ap;
+    const char *token_label = pam_getenv( pamh, "PAM_PKCS11_TOKEN_LABEL" );
+    const char *token_serial = pam_getenv( pamh, "PAM_PKCS11_TOKEN_SERIAL" );
+
+    char fmt2[512];
+    if ( token_label || token_serial ) {
+      snprintf( fmt2, sizeof(fmt2) - 1, "[%s#%s]: %s",
+		token_label ? token_label : "",
+		token_serial ? token_serial : "",
+		fmt );
+		fmt = fmt2;
+    }
+
+    va_start (ap, fmt);
+    pam_vsyslog (pamh, priority, fmt, ap);
+    va_end (ap);
+}
 
 
 /*
@@ -222,7 +249,7 @@ static void _get_pwd_error( pam_handle_t *pamh,
                    _(configuration->prompts.pin_read_err));
     }
     sleep(configuration->err_display_time);
-    pam_syslog(pamh, LOG_ERR,
+    _pam_syslog(pamh, LOG_ERR,
                "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 }
 
@@ -242,7 +269,7 @@ static int check_pwd( pam_handle_t *pamh,
 		 (pwdlen > configuration->pin_len_max) )
 	{
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
 						"password is too long");
         }
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
@@ -250,7 +277,7 @@ static int check_pwd( pam_handle_t *pamh,
         ret = PAM_AUTH_ERR;
 	} else if ( pwdlen < configuration->pin_len_min ) {
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                        "password is too short");
         }
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
@@ -258,7 +285,7 @@ static int check_pwd( pam_handle_t *pamh,
         ret = PAM_AUTH_ERR;
 	} else if ( !configuration->nullok && pwdlen == 0 ) {
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                        "password length is zero but 'nullok' "  \
                        "isn't set.");
         }
@@ -289,7 +316,7 @@ static int pkcs11_module_load_init( pam_handle_t *pamh,
         ERR2("load_pkcs11_module() failed loading %s: %s",
              configuration->pkcs11_modulepath, get_error());
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                        "load_pkcs11_module() failed loading %s: %s",
                        configuration->pkcs11_modulepath, get_error());
         }
@@ -307,7 +334,7 @@ static int pkcs11_module_load_init( pam_handle_t *pamh,
         release_pkcs11_module( *ph );
         ERR1("init_pkcs11_module() failed: %s", get_error());
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                        "init_pkcs11_module() failed: %s",
                        get_error());
         }
@@ -371,7 +398,7 @@ static int pkcs11_open_session( pam_handle_t *pamh,
     if (rv != 0) {
         ERR1("open_pkcs11_session() failed: %s", get_error());
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
+            _pam_syslog(pamh, LOG_ERR, "open_pkcs11_session() failed: %s", get_error());
         }
         pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2312: open PKCS#11 session failed"));
         sleep(configuration->err_display_time);
@@ -391,7 +418,7 @@ static int pkcs11_close_session( pam_handle_t *pamh,
     if (rv != 0) {
         ERR1("close_pkcs11_session() failed: %s", get_error());
 		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
+			_pam_syslog(pamh, LOG_ERR, "close_pkcs11_module() failed: %s", get_error());
 		}
         pam_prompt(pamh, PAM_ERROR_MSG , NULL, ("Error 2344: Closing PKCS#11 session failed"));
         sleep(configuration->err_display_time);
@@ -406,7 +433,7 @@ static void report_pkcs11_lib_error(pam_handle_t *pamh,
 {
     ERR2("%s() failed: %s", func, get_error());
     if (!configuration->quiet) {
-        pam_syslog(pamh, LOG_ERR, "%s() failed: %s", func, get_error());
+        _pam_syslog(pamh, LOG_ERR, "%s() failed: %s", func, get_error());
     }
 }
 
@@ -454,7 +481,7 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
                 } else {
                     ERR1("pin_count() from %s failed", lowlevel->module_name);
                     if (!configuration->quiet) {
-                        pam_syslog(pamh, LOG_ERR, "pin_count() from %s failed",
+                        _pam_syslog(pamh, LOG_ERR, "pin_count() from %s failed",
                                    lowlevel->module_name);
                     }
                 }
@@ -469,6 +496,33 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
     }
 
     return final_try;
+}
+
+static int _pam_putenv( pam_handle_t *pamh,
+                        struct configuration_st *configuration,
+                        const char *name,
+                        const char *value )
+{
+    char env_temp[256];
+    int rv;
+
+    snprintf( env_temp, sizeof(env_temp) - 1, "%s=%.*s",
+              name,
+              (int)((sizeof(env_temp) - 1) - strlen(name) + 1),
+              value );
+    rv = pam_putenv( pamh, env_temp );
+
+    if (rv) {
+        ERR1( "Could not put %s into the environment: %s",
+              name, pam_strerror(pamh, rv) );
+        if ( !configuration->quiet ) {
+            _pam_syslog( pamh, LOG_ERR,
+                        "Could not put %s into environment: %s",
+                        name, pam_strerror(pamh, rv) );
+        }
+    }
+
+    return rv;
 }
 
 static int pam_set_pin( pam_handle_t *pamh, pkcs11_handle_t *ph,
@@ -498,7 +552,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   unsigned char *signature;
   unsigned long signature_length;
   /* enough space to hold an issuer DN */
-  char env_temp[256] = "";
   char **issuer, **serial;
   const char *login_token_name = NULL;
   const char *service;
@@ -591,7 +644,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		  if (strncmp(display, "localhost:", 10) != 0 && (display[0] != ':')
 			  && (display[0] != '\0')) {
 			  ERR1("Remote login (from %s) is not (yet) supported", display);
-			  pam_syslog(pamh, LOG_ERR,
+			  _pam_syslog(pamh, LOG_ERR,
 				  "Remote login (from %s) is not (yet) supported", display);
 			  return pkcs11_pam_fail;
 		  }
@@ -603,7 +656,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (rv != 0) {
     ERR("Failed to initialize crypto");
     if (!configuration->quiet)
-      pam_syslog(pamh,LOG_ERR, "Failed to initialize crypto");
+      _pam_syslog(pamh,LOG_ERR, "Failed to initialize crypto");
     return pkcs11_pam_fail;
   }
   
@@ -621,7 +674,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (rv != PAM_SUCCESS) {
           ERR1("pam_set_item() failed %s", pam_strerror(pamh, rv));
           if (!configuration->quiet) {
-              pam_syslog(pamh, LOG_ERR,
+              _pam_syslog(pamh, LOG_ERR,
                          "pam_set_item() failed %s", pam_strerror(pamh, rv));
           }
       }
@@ -652,7 +705,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (!configuration->wait_for_card) {
         ERR("no suitable token available");
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR, "no suitable token available");
+            _pam_syslog(pamh, LOG_ERR, "no suitable token available");
         }
     }
 
@@ -686,6 +739,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       return pkcs11_pam_fail;
   }
 
+  /* Initialize the environment for syslog */
+  _pam_putenv( pamh, configuration, "PAM_PKCS11_TOKEN_LABEL",
+               get_slot_tokenlabel(ph) );
+  _pam_putenv( pamh, configuration, "PAM_PKCS11_TOKEN_SERIAL",
+               get_slot_tokenserial(ph) );
+
   pam_prompt(pamh, PAM_TEXT_INFO, NULL,
              _(configuration->prompts.found),
              _(configuration->token_type));
@@ -709,7 +768,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (rv == -1) {
     ERR1("get_slot_login_required() failed: %s", get_error());
     if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
+		_pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
 	}
     goto auth_failed_nopw;
   } else if (rv) {
@@ -723,7 +782,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (rv != 0) {
       ERR1("open_pkcs11_login() failed: %s", get_error());
 		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
+			_pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
         }
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                    _(configuration->prompts.login_failed));
@@ -738,7 +797,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (rv<0) {
     ERR1("get_certificate_list() failed: %s", get_error());
     if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "get_certificate_list() failed: %s", get_error());
+		_pam_syslog(pamh, LOG_ERR, "get_certificate_list() failed: %s", get_error());
 	}
     pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_cert));
     sleep(configuration->err_display_time);
@@ -775,7 +834,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (cert_rv < 0) {
         ERR1("verify_certificate() failed: %s", get_error());
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                        "verify_certificate() failed: %s", get_error());
 		}
         continue; /* try next certificate */
@@ -796,7 +855,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	if (!user) {
           ERR2("find_user() failed: %s on cert #%d", get_error(),i+1);
           if (!configuration->quiet)
-            pam_syslog(pamh, LOG_ERR,
+            _pam_syslog(pamh, LOG_ERR,
                      "find_user() failed: %s on cert #%d",get_error(),i+1);
 	  continue; /* try on next certificate */
 	} else {
@@ -806,7 +865,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	  if (rv != PAM_SUCCESS) {
 	    ERR1("pam_set_item() failed %s", pam_strerror(pamh, rv));
         if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR,
+			_pam_syslog(pamh, LOG_ERR,
                    "pam_set_item() failed %s", pam_strerror(pamh, rv));
 		}
 		pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2332: setting PAM userentry failed"));
@@ -824,7 +883,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         if (rv < 0) { /* match error; abort and return */
           ERR1("match_user() failed: %s", get_error());
 			if (!configuration->quiet) {
-				pam_syslog(pamh, LOG_ERR, "match_user() failed: %s", get_error());
+				_pam_syslog(pamh, LOG_ERR, "match_user() failed: %s", get_error());
 			}
             pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_user_match));
             sleep(configuration->err_display_time);
@@ -866,7 +925,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
               sleep(configuration->err_display_time);
           } else {
               if (!configuration->quiet) {
-                  pam_syslog(pamh, LOG_ERR,
+                  _pam_syslog(pamh, LOG_ERR,
                              "no valid certificate which meets all requirements found");
               }
 			  pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.no_cert_match));
@@ -902,7 +961,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (rv == -1) {
     ERR1("get_slot_login_required() failed: %s", get_error());
     if (!configuration->quiet) {
-		pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
+		_pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
 	}
     pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.login_failed));
     sleep(configuration->err_display_time);
@@ -983,7 +1042,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (rv != 0) {
       ERR1("get_private_key() failed: %s", get_error());
       if (!configuration->quiet)
-        pam_syslog(pamh, LOG_ERR,
+        _pam_syslog(pamh, LOG_ERR,
                  "get_private_key() failed: %s", get_error());
       goto auth_failed_nopw;
     }
@@ -994,7 +1053,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (rv != 0) {
       ERR1("get_random_value() failed: %s", get_error());
 		if (!configuration->quiet){
-			pam_syslog(pamh, LOG_ERR, "get_random_value() failed: %s", get_error());
+			_pam_syslog(pamh, LOG_ERR, "get_random_value() failed: %s", get_error());
 		}
         pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2338: Getting random value failed"));
         sleep(configuration->err_display_time);
@@ -1008,7 +1067,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (rv != 0) {
       ERR1("sign_value() failed: %s", get_error());
 		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "sign_value() failed: %s", get_error());
+			_pam_syslog(pamh, LOG_ERR, "sign_value() failed: %s", get_error());
 		}
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                    _(configuration->prompts.sig_failed));
@@ -1026,7 +1085,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (rv != 0) {
       ERR1("verify_signature() failed: %s", get_error());
 		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
+			_pam_syslog(pamh, LOG_ERR, "verify_signature() failed: %s", get_error());
 		}
       pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.sig_verif_failed));
       sleep(configuration->err_display_time);
@@ -1040,63 +1099,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   /*
    * fill in the environment variables.
    */
-  snprintf(env_temp, sizeof(env_temp) - 1,
-	   "PKCS11_LOGIN_TOKEN_NAME=%.*s",
-	   (int)((sizeof(env_temp) - 1) - strlen("PKCS11_LOGIN_TOKEN_NAME=")),
-	   get_slot_tokenlabel(ph));
-  rv = pam_putenv(pamh, env_temp);
-
-  if (rv != PAM_SUCCESS) {
-    ERR1("could not put token name in environment: %s",
-         pam_strerror(pamh, rv));
-    if (!configuration->quiet)
-      pam_syslog(pamh, LOG_ERR, "could not put token name in environment: %s",
-           pam_strerror(pamh, rv));
-  }
-
+  _pam_putenv( pamh, configuration, "PKCS11_LOGIN_TOKEN_NAME",
+			   get_slot_tokenlabel(ph) );
   issuer = cert_info((X509 *)get_X509_certificate(chosen_cert), CERT_ISSUER,
                      ALGORITHM_NULL);
-  if (issuer) {
-    snprintf(env_temp, sizeof(env_temp) - 1,
-	   "PKCS11_LOGIN_CERT_ISSUER=%.*s",
-	   (int)((sizeof(env_temp) - 1) - strlen("PKCS11_LOGIN_CERT_ISSUER=")),
-	   issuer[0]);
-    rv = pam_putenv(pamh, env_temp);
-  } else {
-    ERR("couldn't get certificate issuer.");
-    if (!configuration->quiet)
-      pam_syslog(pamh, LOG_ERR, "couldn't get certificate issuer.");
-  }
-
-  if (rv != PAM_SUCCESS) {
-    ERR1("could not put cert issuer in environment: %s",
-         pam_strerror(pamh, rv));
-    if (!configuration->quiet)
-      pam_syslog(pamh, LOG_ERR, "could not put cert issuer in environment: %s",
-           pam_strerror(pamh, rv));
-  }
-
+  if (issuer)
+	  _pam_putenv( pamh, configuration, "PKCS11_LOGIN_CERT_ISSUER",
+				   issuer[0] );
   serial = cert_info((X509 *)get_X509_certificate(chosen_cert), CERT_SERIAL,
                      ALGORITHM_NULL);
-  if (serial) {
-    snprintf(env_temp, sizeof(env_temp) - 1,
-	   "PKCS11_LOGIN_CERT_SERIAL=%.*s",
-	   (int)((sizeof(env_temp) - 1) - strlen("PKCS11_LOGIN_CERT_SERIAL=")),
-	   serial[0]);
-    rv = pam_putenv(pamh, env_temp);
-  } else {
-    ERR("couldn't get certificate serial number.");
-    if (!configuration->quiet)
-      pam_syslog(pamh, LOG_ERR, "couldn't get certificate serial number.");
-  }
-
-  if (rv != PAM_SUCCESS) {
-    ERR1("could not put cert serial in environment: %s",
-         pam_strerror(pamh, rv));
-    if (!configuration->quiet)
-      pam_syslog(pamh, LOG_ERR, "could not put cert serial in environment: %s",
-           pam_strerror(pamh, rv));
-  }
+  if (serial)
+	  _pam_putenv( pamh, configuration, "PKCS11_LOGIN_CERT_SERIAL",
+				   serial[0] );
 
   int pin_status = PIN_OK;
   if (!pin_to_be_changed && lowlevel && lowlevel->funcs.pin_status) {
@@ -1104,7 +1118,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       if (pins_status < 0) {
           ERR1("pin_status() from %s failed", lowlevel->module_name);
           if (!configuration->quiet) {
-              pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
+              _pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
                          lowlevel->module_name);
           }
       } else {
@@ -1193,7 +1207,7 @@ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const cha
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   ERR("Warning: Function pm_sm_acct_mgmt() is not implemented in this module");
-  pam_syslog(pamh, LOG_WARNING,
+  _pam_syslog(pamh, LOG_WARNING,
              "Function pm_sm_acct_mgmt() is not implemented in this module");
   return PAM_SERVICE_ERR;
 }
@@ -1201,7 +1215,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   ERR("Warning: Function pam_sm_open_session() is not implemented in this module");
-  pam_syslog(pamh, LOG_WARNING,
+  _pam_syslog(pamh, LOG_WARNING,
              "Function pm_sm_open_session() is not implemented in this module");
   return PAM_SERVICE_ERR;
 }
@@ -1209,7 +1223,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   ERR("Warning: Function pam_sm_close_session() is not implemented in this module");
-  pam_syslog(pamh, LOG_WARNING,
+  _pam_syslog(pamh, LOG_WARNING,
            "Function pm_sm_close_session() is not implemented in this module");
   return PAM_SERVICE_ERR;
 }
@@ -1244,7 +1258,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       if ( rv != 0 ) {
           ERR("No smartcard found");
           if (!configuration->quiet) {
-              pam_syslog(pamh, LOG_ERR, "No smartcard found");
+              _pam_syslog(pamh, LOG_ERR, "No smartcard found");
           }
           if ( configuration->card_only || login_token_name ) {
               pam_prompt(pamh, PAM_ERROR_MSG, NULL,
@@ -1341,7 +1355,7 @@ int pam_do_login( pkcs11_handle_t *ph, const char *pass,
 		ERR2( "%sLogin failed: %s", init_pin ? "SO " : "",
 			  get_error() );
 		if ( !configuration->quiet ) {
-			pam_syslog( pamh, LOG_ERR, "%sLogin failed: %s",
+			_pam_syslog( pamh, LOG_ERR, "%sLogin failed: %s",
 						init_pin ? "SO " : "",
 						get_error() );
             if (final_try) {
@@ -1463,7 +1477,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if ( strcmp(new_pass, confirm) != 0 ) {
             ERR("Confirm PIN mismatch");
             if (!configuration->quiet) {
-                pam_syslog(pamh, LOG_ERR, "Confirm PIN mismatch");
+                _pam_syslog(pamh, LOG_ERR, "Confirm PIN mismatch");
             }
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                        _(configuration->prompts.confirm_pin_mismatch));
@@ -1482,7 +1496,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                       pwquality_strerror( NULL, 0, rv, auxerror );
                   ERR1("PIN quality check failed: %s", err_text);
                   if (!configuration->quiet) {
-                      pam_syslog(pamh, LOG_ERR,
+                      _pam_syslog(pamh, LOG_ERR,
                                  "PIN quality check failed: %s", err_text);
                   }
                   pam_prompt( pamh, PAM_ERROR_MSG, NULL,
@@ -1544,7 +1558,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     } else if ( logged_in ) {
         ERR1("C_%PIN error", init_pin ? "Init" : "Set");
         if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
+            _pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
                        init_pin ? "Init" : "Set");
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                        _("Error: Unable to set new PIN"));
@@ -1598,7 +1612,7 @@ static int pam_set_pin( pam_handle_t *pamh,
             const char *err_text = pwquality_strerror( NULL, 0, rv, auxerror );
             ERR1("Error reading libpwquality config: %s", err_text);
             if (!configuration->quiet) {
-                pam_syslog(pamh, LOG_ERR,
+                _pam_syslog(pamh, LOG_ERR,
                            "Error reading libpwquality config: %s",
                            err_text);
             }

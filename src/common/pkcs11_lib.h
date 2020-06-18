@@ -38,6 +38,7 @@ PKCS11_EXTERN int find_slot_by_number_and_label(pkcs11_handle_t *h,
                                       int slot_num, const char *slot_label,
                                       unsigned int *slot);
 PKCS11_EXTERN const char *get_slot_tokenlabel(pkcs11_handle_t *h);
+PKCS11_EXTERN const char *get_slot_tokenserial(pkcs11_handle_t *h);
 PKCS11_EXTERN int wait_for_token(pkcs11_handle_t *h,
                                  int wanted_slot_num,
                                  const char *wanted_token_label,

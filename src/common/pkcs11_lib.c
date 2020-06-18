@@ -1900,6 +1900,11 @@ const char *get_slot_tokenlabel(pkcs11_handle_t *h)
   return h->slots[h->current_slot].label;
 }
 
+const char *get_slot_tokenserial(pkcs11_handle_t *h)
+{
+  return h->slots[h->current_slot].serialNumber;
+}
+
 const X509 *get_X509_certificate(cert_object_t *cert)
 {
   return cert->x509;
