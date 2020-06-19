@@ -237,6 +237,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   textdomain(PACKAGE);
 #endif
 
+  /* first of all check whether debugging should be enabled */
+  for (i = 0; i < argc; i++)
+    if (strcmp("debug", argv[i]) == 0) {
+      set_debug_level(1);
+    }
+
   pam_get_item(pamh, PAM_SERVICE, &service);
 
   /* call configure routines */
@@ -246,21 +252,15 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	return PAM_AUTHINFO_UNAVAIL;
   }
 
-  if (configuration->verbose) {
-      pam_prompt(pamh, PAM_TEXT_INFO , NULL,
-                 _(configuration->prompts.start_auth));
-  }
-
-  /* first of all check whether debugging should be enabled */
-  for (i = 0; i < argc; i++)
-    if (strcmp("debug", argv[i]) == 0) {
-      set_debug_level(1);
-    }
-
   /* Either slot_description or slot_num, but not both, needs to be used */
   if ((configuration->slot_description != NULL && configuration->slot_num != -1) || (configuration->slot_description == NULL && configuration->slot_num == -1)) {
 	ERR("Error setting configuration parameters");
 	return PAM_AUTHINFO_UNAVAIL;
+  }
+
+  if (configuration->verbose) {
+      pam_prompt(pamh, PAM_TEXT_INFO , NULL,
+                 _(configuration->prompts.start_auth));
   }
 
   /* fail if we are using a remote server
