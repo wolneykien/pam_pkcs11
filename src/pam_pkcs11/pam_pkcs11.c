@@ -209,12 +209,12 @@ static void _get_pwd_error( pam_handle_t *pamh,
                             int rv )
 {
     if (!configuration->quiet) {
+        pam_syslog(pamh, LOG_ERR,
+                   "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                    _("Error 2316: password could not be read"));
         sleep(configuration->err_display_time);
     }
-    pam_syslog(pamh, LOG_ERR,
-               "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 }
 
 static int check_pwd( pam_handle_t *pamh,
@@ -228,10 +228,10 @@ static int check_pwd( pam_handle_t *pamh,
     /* check password length */
     if ( !configuration->nullok && strlen(password) == 0 ) {
         cleanse(password, strlen(password));
-        pam_syslog(pamh, LOG_ERR,
-                   "password length is zero but the 'nullok' " \
-                   "argument was not defined.");
         if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "password length is zero but the 'nullok' "  \
+                       "argument was not defined.");
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                        _("Error 2318: Empty smartcard PIN not allowed."));
             sleep(configuration->err_display_time);
