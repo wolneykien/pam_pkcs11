@@ -513,7 +513,7 @@ static int _pam_putenv( pam_handle_t *pamh,
     rv = pam_putenv( pamh, env_temp );
 
     if (rv) {
-        ERR1( "Could not put %s into the environment: %s",
+        ERR2( "Could not put %s into the environment: %s",
               name, pam_strerror(pamh, rv) );
         if ( !configuration->quiet ) {
             _pam_syslog( pamh, LOG_ERR,
