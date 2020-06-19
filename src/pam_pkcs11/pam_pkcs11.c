@@ -743,9 +743,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   _pam_putenv( pamh, configuration, "PAM_PKCS11_TOKEN_SERIAL",
                get_slot_tokenserial(ph) );
 
-  pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-             _(configuration->prompts.found),
-             _(configuration->token_type));
+  if (configuration->verbose) {
+      pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                 _(configuration->prompts.found),
+                 _(configuration->token_type));
+  }
 
   /* open pkcs #11 session */
   rv = open_pkcs11_session(ph, slot_num);
