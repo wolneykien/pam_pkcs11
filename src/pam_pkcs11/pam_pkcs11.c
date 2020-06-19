@@ -210,12 +210,12 @@ static void _get_pwd_error( pam_handle_t *pamh,
                             int rv )
 {
     if (!configuration->quiet) {
+        pam_syslog(pamh, LOG_ERR,
+                   "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
         pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                    _("Error 2316: password could not be read"));
         sleep(configuration->err_display_time);
     }
-    pam_syslog(pamh, LOG_ERR,
-               "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 }
 
 static int check_pwd( pam_handle_t *pamh,
@@ -227,20 +227,45 @@ static int check_pwd( pam_handle_t *pamh,
 #endif
 
     /* check password length */
-    if ( !configuration->nullok && strlen(password) == 0 ) {
-        memset(password, 0, strlen(password));
-        pam_syslog(pamh, LOG_ERR,
-                   "password length is zero but the 'nullok' " \
-                   "argument was not defined.");
+	int pwdlen = strlen(password);
+	int ret = 0;
+
+	if ( configuration->pin_len_max &&
+		 (pwdlen > configuration->pin_len_max) )
+	{
         if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+						"password is too long");
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2318: PIN is too long."));
+        }
+        ret = PAM_AUTH_ERR;
+	} else if ( pwdlen < configuration->pin_len_min ) {
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "password is too short");
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _("Error 2318: PIN is too short."));
+        }
+        ret = PAM_AUTH_ERR;
+	} else if ( !configuration->nullok && pwdlen == 0 ) {
+        if (!configuration->quiet) {
+            pam_syslog(pamh, LOG_ERR,
+                       "password length is zero but 'nullok' "  \
+                       "isn't set.");
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                        _("Error 2318: Empty smartcard PIN not allowed."));
-            sleep(configuration->err_display_time);
         }
-        return PAM_AUTH_ERR;
+        ret = PAM_AUTH_ERR;
     }
 
-    return 0;
+	if (ret) {
+        if (!configuration->quiet)
+            sleep(configuration->err_display_time);
+		cleanse(password, strlen(password));
+	}
+
+    return ret;
 }
 
 static int pkcs11_module_load_init( pam_handle_t *pamh,
@@ -391,8 +416,7 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
     if (rv) {
         if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_final_try", configuration);
         final_try = 1;
-        pam_prompt(pamh, PAM_ERROR_MSG, NULL,
-                   _("WARNING! PIN FINAL TRY!!!"));
+        pam_prompt(pamh, PAM_ERROR_MSG, NULL, _("WARNING! PIN FINAL TRY!!!"));
         sleep(configuration->err_display_time);
     } else {
         rv = get_slot_user_pin_count_low(ph);
@@ -402,12 +426,23 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
             int pins_left = -1;
             if ( lowlevel && lowlevel->funcs.pin_count) {
                 pins_left = (*lowlevel->funcs.pin_count)(lowlevel->funcs.context, slot_num, 0);
-                if (pins_left >= 0) {
+                if (pins_left > 0) {
+                    if (pins_left < configuration->pin_count_low) {
+                        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                   pins_left > 1 ?
+                                     _("WARNING! There were incorrect login attempts! Only %i attempts left!"):
+                                     _("WARNING! There were incorrect login attempts! Only 1 attempt left!"),
+                                   pins_left);
+                    } else {
+                        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                   pins_left > 1 ?
+                                     _("WARNING! There were incorrect login attempts! %i attempts left!"):
+                                     _("WARNING! There were incorrect login attempts! 1 attempt left!"),
+                                   pins_left);
+                    }
+                } else if (pins_left == 0) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               (pins_left < configuration->pin_count_low) ?
-                                 _("WARNING! There were incorrect login attempts! Only %d PIN attempts left!") :
-                                 _("WARNING! There were incorrect login attempts! %d PIN attempts left."),
-                               pins_left);
+                               _("WARNING! There were incorrect login attempts! The PIN is locked now!"));
                 } else {
                     ERR1("pin_count() from %s failed", lowlevel->module_name);
                     if (!configuration->quiet) {
@@ -433,6 +468,9 @@ static int pam_set_pin( pam_handle_t *pamh, pkcs11_handle_t *ph,
                         struct configuration_st *configuration,
                         char *old_pass,
                         int init_pin );
+
+static int pam_do_login( pkcs11_handle_t *ph, const char *pass,
+                         int init_pin, int final_try );
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
@@ -695,8 +733,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           return pkcs11_pam_fail;
       }
 
-      final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
-                                        slot_num );
+      final_try = check_warn_pin_count( pamh, ph, lowlevel,
+                                        configuration, slot_num );
 
 	/* no CKF_PROTECTED_AUTHENTICATION_PATH */
 	rv = get_slot_protected_authentication_path(ph);
@@ -740,55 +778,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* call pkcs#11 login to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pkcs11_login(ph, password);
+    rv = pam_do_login( ph, password, 0, final_try );
     /* erase and free in-memory password data asap */
 	if (password && !pin_to_be_changed)
 	{
 		cleanse(password, strlen(password));
 		free(password);
 	}
-    if (rv != 0) {
-      ERR1("open_pkcs11_login() failed: %s", get_error());
-		if (!configuration->quiet) {
-			pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-        }
-        if ( lowlevel && lowlevel->module_data && lowlevel->module_data->pin_count) {
-            int pins_left = (*lowlevel->module_data->pin_count)(lowlevel->module_data->context, slot_num, 0);
-            if (pins_left > 0) {
-                if (pins_left < configuration->pin_count_low) {
-                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               pins_left > 1 ?
-                                 _("Error 2320.1: Wrong smartcard PIN. Only %i attempts left!"):
-                                 _("Error 2320.1: Wrong smartcard PIN. Only 1 attempt left!"),
-                               pins_left);
-                } else {
-                    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                               pins_left > 1 ?
-                                 _("Error 2320.2: Wrong smartcard PIN. %i attempts left!"):
-                                 _("Error 2320.2: Wrong smartcard PIN. 1 attempt left!"),
-                               pins_left);
-                }
-            } else if (pins_left == 0) {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
-            } else {
-                ERR1("pin_count() from %s failed", lowlevel->module_name);
-                if (!configuration->quiet) {
-                    pam_syslog(pamh, LOG_ERR, "pin_count() from %s failed",
-                               lowlevel->module_name);
-                }
-            }
-        } else {
-            if (final_try) {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
-            } else {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2320: Wrong smartcard PIN"));
-            }
-        }
-        sleep(configuration->err_display_time);
-        goto auth_failed_nopw;
-    }
+    if (rv != 0) goto auth_failed_nopw;
   }
 
   cert_list = get_certificate_list(ph, &ncert);
@@ -1083,7 +1080,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (pin_to_be_changed && configuration->force_pin_change) {
       rv = pam_set_pin( pamh, ph, slot_num, configuration, password, 0 );
       if ( password ) {
-          memset( password, 0, strlen(password) );
+          cleanse( password, strlen(password) );
           free( password );
       }
   }
@@ -1251,6 +1248,39 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
   }
 }
 
+static
+int pam_do_login( pkcs11_handle_t *ph, const char *pass,
+				  int init_pin, int final_try )
+{
+	int rv;
+
+	if ( init_pin ) {
+        rv = pkcs11_login_so( ph, pass );
+    } else {
+        rv = pkcs11_login( ph, pass );
+    }
+
+	if ( rv != 0 ) {
+		ERR2( "%sLogin failed: %s", init_pin ? "SO " : "",
+			  get_error() );
+		if ( !configuration->quiet ) {
+			pam_syslog( pamh, LOG_ERR, "%sLogin failed: %s",
+						init_pin ? "SO " : "",
+						get_error() );
+            if (final_try) {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
+            } else {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           _("Error 2320: Wrong smartcard PIN"));
+            }
+            sleep(configuration->err_display_time);
+        }
+	}
+
+	return rv;
+}
+
 static int pam_do_set_pin( pam_handle_t *pamh,
                            pkcs11_handle_t *ph,
                            struct lowlevel_instance *lowlevel,
@@ -1262,6 +1292,10 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     int rv;
     int clean_old_pass = (old_pass == NULL);
     char *new_pass;
+    int logged_in = 0;
+
+    int final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
+                                          slot_num );
 
     int final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
                                           slot_num );
@@ -1275,7 +1309,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if (!old_pass) {
             /* Old PIN */
             snprintf(password_prompt, sizeof(password_prompt),
-                     _("Old %s PIN: "), _(configuration->token_type));
+                     init_pin ? _("%s SO PIN: ") : _("Old %s PIN: "),
+                     _(configuration->token_type));
             rv = pam_get_pwd(pamh, &old_pass, password_prompt,
                              0, PAM_AUTHTOK);
 
@@ -1287,12 +1322,25 @@ static int pam_do_set_pin( pam_handle_t *pamh,
             rv = check_pwd( pamh, configuration, old_pass );
             if ( rv != 0 ) {
                 if (clean_old_pass && old_pass) {
-                    memset( old_pass, 0, strlen(old_pass) );
+                    cleanse( old_pass, strlen(old_pass) );
                     free( old_pass );
                 }
                 return PAM_AUTHTOK_RECOVERY_ERR;
             }
         }
+
+        if ( configuration->check_pin_early ) {
+			rv = pam_do_login( ph, old_pass, init_pin, final_try );
+			if ( rv == 0 ) {
+				logged_in = 1;
+			} else {
+				if (clean_old_pass && old_pass) {
+					cleanse( old_pass, strlen(old_pass) );
+					free( old_pass );
+				}
+				return PAM_AUTHTOK_RECOVERY_ERR;
+			}
+		}
 
         /* New PIN */
         snprintf(password_prompt, sizeof(password_prompt),
@@ -1308,11 +1356,11 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         rv = check_pwd( pamh, configuration, new_pass );
         if ( rv != 0 ) {
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
             if ( new_pass ) {
-                memset( new_pass, 0, strlen(new_pass) );
+                cleanse( new_pass, strlen(new_pass) );
                 free( new_pass );
             }
             return PAM_AUTHTOK_ERR;
@@ -1327,10 +1375,10 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
-            memset( new_pass, 0, strlen(new_pass) );
+            cleanse( new_pass, strlen(new_pass) );
             free( new_pass );
             return PAM_AUTHTOK_ERR;
         }
@@ -1344,16 +1392,16 @@ static int pam_do_set_pin( pam_handle_t *pamh,
                 sleep(configuration->err_display_time);
             }
             if (clean_old_pass && old_pass) {
-                memset( old_pass, 0, strlen(old_pass) );
+                cleanse( old_pass, strlen(old_pass) );
                 free( old_pass );
             }
-            memset( new_pass, 0, strlen(new_pass) );
+            cleanse( new_pass, strlen(new_pass) );
             free( new_pass );
-            memset( confirm, 0, strlen(confirm) );
+            cleanse( confirm, strlen(confirm) );
             free( confirm );
             return PAM_AUTHTOK_ERR;
         } else {
-            memset( confirm, 0, strlen(confirm) );
+            cleanse( confirm, strlen(confirm) );
             free( confirm );
         }
     } else {
@@ -1364,30 +1412,30 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         new_pass = NULL;
     }
 
-    if (init_pin) {
-        rv = pkcs11_login_so( ph, old_pass );
-        if ( rv == 0 ) {
+    if ( !logged_in ) {
+        rv = pam_do_login( ph, old_pass, init_pin, final_try );
+        if ( rv == 0 ) logged_in = 1;
+    }
+    if ( rv == 0 ) {
+        if (init_pin) {
             rv = pkcs11_initpin( ph, new_pass );
-        }
-    } else {
-        rv = pkcs11_login( ph, old_pass );
-        if ( rv == 0 ) {
+        } else {
             rv = pkcs11_setpin( ph, old_pass, new_pass );
         }
     }
 
     if (clean_old_pass && old_pass) {
-        memset( old_pass, 0, strlen(old_pass) );
+        cleanse( old_pass, strlen(old_pass) );
         free( old_pass );
     }
     if ( new_pass ) {
-        memset( new_pass, 0, strlen(new_pass) );
+        cleanse( new_pass, strlen(new_pass) );
         free( new_pass );
     }
 
     if ( rv == 0 ) {
         return PAM_SUCCESS;
-    } else {
+    } else if ( logged_in ) {
         ERR1("C_%PIN error", init_pin ? "Init" : "Set");
         if (!configuration->quiet) {
             pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
@@ -1399,13 +1447,19 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
         if (final_try) {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _("Error 2320.3: Wrong smartcard PIN. The PIN is locked now!"));
+                       init_pin ?
+                         _("Error 2320: Wrong smartcard SO PIN. SO PIN is locked now!") :
+                         _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
         } else {
             pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _("Error 2320: Wrong smartcard PIN"));
+                       init_pin ?
+                         _("Error 2320: Wrong smartcard SO PIN") :
+                         _("Error 2320: Wrong smartcard PIN"));
         }
 
         sleep(configuration->err_display_time);
+        return PAM_AUTHTOK_ERR;
+    } else {
         return PAM_AUTHTOK_ERR;
     }
 }

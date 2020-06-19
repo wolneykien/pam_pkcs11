@@ -30,6 +30,8 @@ struct configuration_st {
 	scconf_context *ctx;
 	int debug;
 	int nullok;
+	int pin_len_min;
+	int pin_len_max;
 	int try_first_pass;
 	int use_first_pass;
 	int use_authok;
@@ -50,6 +52,7 @@ struct configuration_st {
     int reset_pin_low;
     int reset_pin_locked;
     int force_pin_change;
+    int change_pin_early;
 };
 
 struct configuration_st *pk_configure( int argc, const char **argv );
