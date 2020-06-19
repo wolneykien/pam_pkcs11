@@ -688,7 +688,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   rv = pkcs11_module_load_init( pamh, configuration, &ph );
   if ( rv != 0 ) {
-      return rv;
+      return pkcs11_pam_fail;
   }
 
   rv = pkcs11_find_slot( pamh, configuration, login_token_name, ph,
