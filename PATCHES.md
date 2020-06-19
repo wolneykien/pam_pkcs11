@@ -15,6 +15,7 @@ The patch layout:
     * `pwquality`
 * `snprintf`
 * `ask-pin`
+  * `welcome-user`
 * `opensslconf`
 * `global-ca`
 * `blacklist`
@@ -123,6 +124,12 @@ New contifuration option `ask_pin`. Without `ask_pin` the
 
 With `ask_pin` (the default) the PIN is asked _after_ the certificate
 list is obtained from the token.
+
+
+## `welcome-user`
+
+Welcome the user by a description from their certificate.
+Depends on `ask-pin` and `userdesc` patches.
 
 
 ## `opensslconf`
