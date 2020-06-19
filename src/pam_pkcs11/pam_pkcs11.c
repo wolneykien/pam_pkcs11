@@ -764,6 +764,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     if (!configuration->quiet) {
 		_pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
 	}
+    pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.login_failed));
+    sleep(configuration->err_display_time);
     goto auth_failed_nopw;
   } else if (rv) {
 	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
