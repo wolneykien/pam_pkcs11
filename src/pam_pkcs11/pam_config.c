@@ -85,7 +85,9 @@ static void display_config (void) {
         DBG1("found: %s", configuration.prompts.found);
         DBG1("login_failed: %s", configuration.prompts.login_failed);
         DBG1("welcome: %s", configuration.prompts.welcome);
+        DBG1("welcome_user: %s", configuration.prompts.welcome_user);
         DBG1("welcome_locked: %s", configuration.prompts.welcome_locked);
+        DBG1("welcome_user_locked: %s", configuration.prompts.welcome_user_locked);
         DBG1("wrong_pin: %s", configuration.prompts.wrong_pin);
         DBG1("wrong_pin_locked: %s", configuration.prompts.wrong_pin_locked);
         DBG1("no_cert: %s", configuration.prompts.no_cert);
@@ -147,7 +149,9 @@ static void init_prompts() {
     configuration.prompts.found = "%s found.";
     configuration.prompts.login_failed = "Error 2314: Slot login failed";
     configuration.prompts.welcome = "Welcome %.32s!";
+    configuration.prompts.welcome_user = "Welcome %.32s, %s!";
     configuration.prompts.welcome_locked = "Welcome %.32s! PIN is locked!";
+    configuration.prompts.welcome_user_locked = "Welcome %.32s, %s! PIN is locked";
     configuration.prompts.wrong_pin = "Error 2320: Wrong smartcard PIN";
     configuration.prompts.wrong_pin_locked = "Error 2320.3: Wrong smartcard PIN. The PIN is locked now!";
     configuration.prompts.no_cert = "Error 2322: No certificate found";
@@ -258,7 +262,9 @@ static void parse_prompts(scconf_context *ctx, const scconf_block *root,
     PARSE_PROMPT(found);
     PARSE_PROMPT(login_failed);
     PARSE_PROMPT(welcome);
+    PARSE_PROMPT(welcome_user);
     PARSE_PROMPT(welcome_locked);
+    PARSE_PROMPT(welcome_user_locked);
     PARSE_PROMPT(wrong_pin);
     PARSE_PROMPT(wrong_pin_locked);
     PARSE_PROMPT(no_cert);

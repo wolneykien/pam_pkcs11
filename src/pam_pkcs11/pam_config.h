@@ -39,7 +39,9 @@ struct prompts_st {
     const char *found;
     const char *login_failed;
     const char *welcome;
+    const char *welcome_user;
     const char *welcome_locked;
+    const char *welcome_user_locked;
     const char *wrong_pin;
     const char *wrong_pin_locked;
     const char *no_cert;
