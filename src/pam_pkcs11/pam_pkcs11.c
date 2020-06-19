@@ -245,12 +245,12 @@ static void _get_pwd_error( pam_handle_t *pamh,
                             int rv )
 {
     if (!configuration->quiet) {
-        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                   _(configuration->prompts.pin_read_err));
+        _pam_syslog(pamh, LOG_ERR,
+                    "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
     }
+    pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+               _(configuration->prompts.pin_read_err));
     sleep(configuration->err_display_time);
-    _pam_syslog(pamh, LOG_ERR,
-               "pam_get_pwd() failed: %s", pam_strerror(pamh, rv));
 }
 
 static int check_pwd( pam_handle_t *pamh,
