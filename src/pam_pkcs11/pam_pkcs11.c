@@ -744,7 +744,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
 
   /* open pkcs #11 session */
-  rv = open_pkcs11_session(ph, slot_num);
+  rv = pkcs11_open_session( pamh, configuration, ph, slot_num, 0 );
   if (rv != 0) {
     release_pkcs11_module(ph);
     return pkcs11_pam_fail;
