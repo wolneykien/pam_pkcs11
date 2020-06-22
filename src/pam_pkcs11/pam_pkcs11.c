@@ -536,15 +536,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* verify certificate (date, signature, CRL, ...) */
     rv = 0;
     cert_rv = verify_certificate(x509,&configuration->policy);
-    if (cert_rv < 0) {
+    if (cert_rv != 1) {
         ERR1("verify_certificate() failed: %s", get_error());
         if (!configuration->quiet) {
             pam_syslog(pamh, LOG_ERR,
                        "verify_certificate() failed: %s", get_error());
 		}
-        continue; /* try next certificate */
-    } else if (cert_rv != 1) {
-        ERR1("verify_certificate() failed: %s", get_error());
         continue; /* try next certificate */
     }
 
