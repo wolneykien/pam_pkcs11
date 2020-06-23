@@ -68,7 +68,7 @@ static void display_config (void) {
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
         DBG1("ask_pin %d",configuration.ask_pin);
-        DBG1("change_pin_early %d", configuration.change_pin_early);
+        DBG1("check_pin_early %d", configuration.check_pin_early);
         DBG1("eku_sc_logon_policy %d",configuration.policy.eku_sc_logon_policy);
 
 #ifdef ENABLE_PWQUALITY
@@ -381,8 +381,8 @@ static void parse_config_file(const char *service) {
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
 	configuration.ask_pin =
 	    scconf_get_bool(root,"ask_pin",configuration.ask_pin);
-    configuration.change_pin_early =
-        scconf_get_bool(root, "change_pin_early", configuration.change_pin_early);
+    configuration.check_pin_early =
+        scconf_get_bool(root, "check_pin_early", configuration.check_pin_early);
 
 #ifdef ENABLE_PWQUALITY
 	configuration.pwquality_config =

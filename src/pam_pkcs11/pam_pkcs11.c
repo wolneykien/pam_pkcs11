@@ -531,8 +531,9 @@ static int pam_set_pin( pam_handle_t *pamh, pkcs11_handle_t *ph,
                         char *old_pass,
                         int init_pin );
 
-static int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-                         int init_pin, int final_try );
+static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                         struct configuration_st *configuration,
+                         const char *pass, int init_pin, int final_try );
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
@@ -1025,7 +1026,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* call pkcs#11 login to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pam_do_login( ph, password, 0, final_try );
+    rv = pam_do_login( pamh, ph, configuration, password, 0, final_try );
     if (rv != 0) goto auth_failed_wrongpw;
   }
 
@@ -1342,8 +1343,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 }
 
 static
-int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-				  int init_pin, int final_try )
+int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                  struct configuration_st *configuration,
+                  const char *pass, int init_pin, int final_try )
 {
 	int rv;
 
@@ -1422,7 +1424,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         }
 
         if ( configuration->check_pin_early ) {
-			rv = pam_do_login( ph, old_pass, init_pin, final_try );
+			rv = pam_do_login( pamh, ph, configuration,
+                               old_pass, init_pin, final_try );
 			if ( rv == 0 ) {
 				logged_in = 1;
 			} else {
@@ -1535,7 +1538,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     }
 
     if ( !logged_in ) {
-        rv = pam_do_login( ph, old_pass, init_pin, final_try );
+        rv = pam_do_login( pamh, ph, configuration,
+                           old_pass, init_pin, final_try );
         if ( rv == 0 ) logged_in = 1;
     }
     if ( rv == 0 ) {
