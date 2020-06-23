@@ -656,7 +656,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* get password */
     if (user_desc && strlen(user_desc) > 0) {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("Welcome %.32s, %s!"),
-                   get_slot_tokenlabel(ph));
+                   get_slot_tokenlabel(ph), user_desc);
     } else {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL, _("Welcome %.32s!"),
                    get_slot_tokenlabel(ph));
