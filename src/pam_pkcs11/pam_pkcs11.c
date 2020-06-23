@@ -966,7 +966,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
                          pin_locked ?
                          _(configuration->prompts.welcome_user_locked) :
                          _(configuration->prompts.welcome_user),
-                         get_slot_tokenlabel(ph));
+                         get_slot_tokenlabel(ph), user_desc);
           } else {
               pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                          pin_locked ?
