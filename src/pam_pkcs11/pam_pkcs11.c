@@ -1026,7 +1026,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
     rv = pam_do_login( ph, password, 0, final_try );
-    goto auth_failed_wrongpw;
+    if (rv != 0) goto auth_failed_wrongpw;
   }
 
   } /* end if (configuration->ask_pin) */
