@@ -768,8 +768,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     sleep(configuration->err_display_time);
     goto auth_failed_nopw;
   } else if (rv) {
-	pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-		_(configuration->prompts.welcome), get_slot_tokenlabel(ph));
+    if (!is_a_screen_saver)
+        pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                   _(configuration->prompts.welcome), get_slot_tokenlabel(ph));
     DBG("pkcs11_login is affected by false ask_pin (before ensuring that the user is the real owner of the card); this might be insecure");
     /* call pkcs#11 login with empty password to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
@@ -959,18 +960,20 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     sleep(configuration->err_display_time);
     goto auth_failed_nopw;
   } else if (rv) {
-      if (user_desc && strlen(user_desc) > 0) {
-          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                     pin_locked ?
-                       _(configuration->prompts.welcome_user_locked) :
-                       _(configuration->prompts.welcome_user),
-                     get_slot_tokenlabel(ph));
-      } else {
-          pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                     pin_locked ?
-                       _(configuration->prompts.welcome_locked) :
-                       _(configuration->prompts.welcome),
-                     get_slot_tokenlabel(ph));
+      if (!is_a_screen_saver) {
+          if (user_desc && strlen(user_desc) > 0) {
+              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                         pin_locked ?
+                         _(configuration->prompts.welcome_user_locked) :
+                         _(configuration->prompts.welcome_user),
+                         get_slot_tokenlabel(ph));
+          } else {
+              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                         pin_locked ?
+                         _(configuration->prompts.welcome_locked) :
+                         _(configuration->prompts.welcome),
+                         get_slot_tokenlabel(ph));
+          }
       }
 
       if (pin_locked) {
