@@ -1116,8 +1116,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   int pin_status = PIN_OK;
   if (!pin_to_be_changed && lowlevel && lowlevel->funcs.pin_status) {
-      pins_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
-      if (pins_status < 0) {
+      pin_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
+      if (pin_status < 0) {
           ERR1("pin_status() from %s failed", lowlevel->module_name);
           if (!configuration->quiet) {
               _pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
