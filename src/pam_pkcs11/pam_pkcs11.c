@@ -980,8 +980,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           pam_prompt(pamh, PAM_ERROR_MSG , NULL,
                      _(configuration->prompts.pin_locked));
           sleep(configuration->err_display_time);
-          release_pkcs11_module(ph);
-          return pkcs11_pam_fail;
+          goto auth_failed_nopw;
       }
 
       final_try = check_warn_pin_count( pamh, ph, lowlevel,
