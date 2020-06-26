@@ -1139,7 +1139,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   if (pin_to_be_changed) {
       pam_prompt (pamh, PAM_TEXT_INFO, NULL,
-                  PAM_EXPIRED ?
+                  pin_status == PIN_EXPIRED ?
                     _(configuration->prompts.pin_expired) :
                     _(configuration->prompts.pin_to_be_changed));
   }
