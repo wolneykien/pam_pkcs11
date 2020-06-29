@@ -1189,6 +1189,7 @@ auth_failed_nopw:
 
 auth_failed_wrongpw:
     unload_mappers();
+    unload_llmodule( lowlevel );
     close_pkcs11_session(ph);
     release_pkcs11_module(ph);
     if ( password ) {
