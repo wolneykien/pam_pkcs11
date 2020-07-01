@@ -469,8 +469,9 @@ static int pam_set_pin( pam_handle_t *pamh, pkcs11_handle_t *ph,
                         char *old_pass,
                         int init_pin );
 
-static int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-                         int init_pin, int final_try );
+static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                         struct configuration_st *configuration,
+                         const char *pass, int init_pin, int final_try );
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
@@ -778,7 +779,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     /* call pkcs#11 login to ensure that the user is the real owner of the card
      * we need to do thise before get_certificate_list because some tokens
      * can not read their certificates until the token is authenticated */
-    rv = pam_do_login( ph, password, 0, final_try );
+    rv = pam_do_login( pamh, ph, configuration, password, 0, final_try );
     /* erase and free in-memory password data asap */
 	if (password && !pin_to_be_changed)
 	{
@@ -1042,8 +1043,8 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   int pin_status = PIN_OK;
   if (!pin_to_be_changed && lowlevel && lowlevel->funcs.pin_status) {
-      pins_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
-      if (pins_status < 0) {
+      pin_status = (*lowlevel->funcs.pin_status)(lowlevel->funcs.context, slot_num, 0);
+      if (pin_status < 0) {
           ERR1("pin_status() from %s failed", lowlevel->module_name);
           if (!configuration->quiet) {
               pam_syslog(pamh, LOG_ERR, "pin_status() from %s failed",
@@ -1051,7 +1052,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
           }
       } else {
           DBG1 ("PIN status: %d", pin_status);
-          pin_to_be_changed = 1;
+          pin_to_be_changed = (pin_status != PIN_OK);
       }
   } else if (pin_to_be_changed) {
       pin_status = PIN_DEFAULT;
@@ -1064,7 +1065,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   if (pin_to_be_changed) {
       pam_prompt (pamh, PAM_TEXT_INFO, NULL,
-                  PAM_EXPIRED ?
+                  pin_status == PIN_EXPIRED ?
                     _("User PIN has expired and needs to be changed") :
                     _("User PIN needs to be changed"));
   }
@@ -1077,7 +1078,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   }
 
   rv = PAM_SUCCESS;
-  if (pin_to_be_changed && configuration->force_pin_change) {
+
+  if (!is_a_screen_saver && pin_to_be_changed &&
+	  configuration->force_pin_change)
+  {
       rv = pam_set_pin( pamh, ph, slot_num, configuration, password, 0 );
       if ( password ) {
           cleanse( password, strlen(password) );
@@ -1169,16 +1173,19 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           if (!configuration->quiet) {
               pam_syslog(pamh, LOG_ERR, "No smartcard found");
           }
-          if ( configuration->card_only || login_token_name ) {
+          if ( !configuration->card_only || !login_token_name ) {
+              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                         _("No smartcard found"));
+          } else {
               pam_prompt(pamh, PAM_ERROR_MSG, NULL,
                          _("Error 2310: No smartcard found"));
               sleep(configuration->err_display_time);
-          }          
+          }
           release_pkcs11_module(ph);
-          if ( configuration->card_only || login_token_name ) {
-              return PAM_AUTHINFO_UNAVAIL;
-          } else {
+          if ( !configuration->card_only || !login_token_name ) {
               return PAM_IGNORE;
+          } else {
+              return PAM_AUTHINFO_UNAVAIL;
           }
       }
 
@@ -1249,8 +1256,9 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
 }
 
 static
-int pam_do_login( pkcs11_handle_t *ph, const char *pass,
-				  int init_pin, int final_try )
+int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
+                  struct configuration_st *configuration,
+                  const char *pass, int init_pin, int final_try )
 {
 	int rv;
 
@@ -1330,7 +1338,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         }
 
         if ( configuration->check_pin_early ) {
-			rv = pam_do_login( ph, old_pass, init_pin, final_try );
+			rv = pam_do_login( pamh, ph, configuration,
+                               old_pass, init_pin, final_try );
 			if ( rv == 0 ) {
 				logged_in = 1;
 			} else {
@@ -1413,7 +1422,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     }
 
     if ( !logged_in ) {
-        rv = pam_do_login( ph, old_pass, init_pin, final_try );
+        rv = pam_do_login( pamh, ph, configuration,
+                           old_pass, init_pin, final_try );
         if ( rv == 0 ) logged_in = 1;
     }
     if ( rv == 0 ) {
