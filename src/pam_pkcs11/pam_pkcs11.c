@@ -1244,12 +1244,15 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       int rv; unsigned int slot_num;
       struct configuration_st *configuration;
       pkcs11_handle_t *ph;
-      
+      const char *service;
+
       if (flags & PAM_PRELIM_CHECK) {
           return PAM_SUCCESS;
       }
 
-      configuration = pk_configure(argc,argv);
+      pam_get_item(pamh, PAM_SERVICE, &service);
+
+      configuration = pk_configure(service, argc, argv);
       if (!configuration ) {
           ERR("Error setting configuration parameters");
           return PAM_AUTHINFO_UNAVAIL;
