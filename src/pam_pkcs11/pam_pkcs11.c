@@ -1370,15 +1370,15 @@ int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
 			_pam_syslog( pamh, LOG_ERR, "%sLogin failed: %s",
 						init_pin ? "SO " : "",
 						get_error() );
-            if (final_try) {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _(configuration->prompts.wrong_pin_locked));
-            } else {
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _(configuration->prompts.wrong_pin));
-            }
-            sleep(configuration->err_display_time);
         }
+        if (final_try) {
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _(configuration->prompts.wrong_pin_locked));
+        } else {
+            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                       _(configuration->prompts.wrong_pin));
+        }
+        sleep(configuration->err_display_time);
 	}
 
 	return rv;
