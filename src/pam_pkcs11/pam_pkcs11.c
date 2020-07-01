@@ -1173,16 +1173,19 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           if (!configuration->quiet) {
               pam_syslog(pamh, LOG_ERR, "No smartcard found");
           }
-          if ( configuration->card_only || login_token_name ) {
+          if ( !configuration->card_only || !login_token_name ) {
+              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                         _("No smartcard found"));
+          } else {
               pam_prompt(pamh, PAM_ERROR_MSG, NULL,
                          _("Error 2310: No smartcard found"));
               sleep(configuration->err_display_time);
-          }          
+          }
           release_pkcs11_module(ph);
-          if ( configuration->card_only || login_token_name ) {
-              return PAM_AUTHINFO_UNAVAIL;
-          } else {
+          if ( !configuration->card_only || !login_token_name ) {
               return PAM_IGNORE;
+          } else {
+              return PAM_AUTHINFO_UNAVAIL;
           }
       }
 
