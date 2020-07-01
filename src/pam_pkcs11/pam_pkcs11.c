@@ -1347,8 +1347,6 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
       release_pkcs11_module( ph );
 
       return rv;
-  } else {
-      return PAM_IGNORE;
   }
 }
 
