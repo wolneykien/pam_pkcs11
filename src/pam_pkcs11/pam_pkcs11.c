@@ -1301,7 +1301,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 {
     int rv;
     int clean_old_pass = (old_pass == NULL);
-    char *new_pass;
+    char *new_pass = NULL;
+	char *confirm = NULL;
     int logged_in = 0;
 
     int final_try = check_warn_pin_count( pamh, ph, lowlevel, configuration,
@@ -1311,7 +1312,6 @@ static int pam_do_set_pin( pam_handle_t *pamh,
     if ((-1 == rv) || (0 == rv)) {
         /* no CKF_PROTECTED_AUTHENTICATION_PATH */
         char password_prompt[128];
-        char *confirm;
 
         if (!old_pass) {
             /* Old PIN */
@@ -1323,16 +1323,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
             if (rv != PAM_SUCCESS) {
                 _get_pwd_error( pamh, configuration, rv );
-                return PAM_AUTHTOK_RECOVERY_ERR;
+				rv = PAM_AUTHTOK_RECOVERY_ERR;
+                goto cleanup;
             }
 
             rv = check_pwd( pamh, configuration, old_pass );
             if ( rv != 0 ) {
-                if (clean_old_pass && old_pass) {
-                    cleanse( old_pass, strlen(old_pass) );
-                    free( old_pass );
-                }
-                return PAM_AUTHTOK_RECOVERY_ERR;
+				rv = PAM_AUTHTOK_RECOVERY_ERR;
+				goto cleanup;
             }
         }
 
@@ -1342,11 +1340,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 			if ( rv == 0 ) {
 				logged_in = 1;
 			} else {
-				if (clean_old_pass && old_pass) {
-					cleanse( old_pass, strlen(old_pass) );
-					free( old_pass );
-				}
-				return PAM_AUTHTOK_RECOVERY_ERR;
+				rv = PAM_AUTHTOK_RECOVERY_ERR;
+                goto cleanup;
 			}
 		}
 
@@ -1358,20 +1353,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
-            return PAM_AUTHTOK_ERR;
+            rv = PAM_AUTHTOK_ERR;
+            goto cleanup;
         }
 
         rv = check_pwd( pamh, configuration, new_pass );
         if ( rv != 0 ) {
-            if (clean_old_pass && old_pass) {
-                cleanse( old_pass, strlen(old_pass) );
-                free( old_pass );
-            }
-            if ( new_pass ) {
-                cleanse( new_pass, strlen(new_pass) );
-                free( new_pass );
-            }
-            return PAM_AUTHTOK_ERR;
+            rv = PAM_AUTHTOK_ERR;
+            goto cleanup;
         }
 
         /* Confirm new PIN */
@@ -1382,13 +1371,8 @@ static int pam_do_set_pin( pam_handle_t *pamh,
 
         if (rv != PAM_SUCCESS) {
             _get_pwd_error( pamh, configuration, rv );
-            if (clean_old_pass && old_pass) {
-                cleanse( old_pass, strlen(old_pass) );
-                free( old_pass );
-            }
-            cleanse( new_pass, strlen(new_pass) );
-            free( new_pass );
-            return PAM_AUTHTOK_ERR;
+            rv = PAM_AUTHTOK_ERR;
+            goto cleanup;
         }
 
         if ( strcmp(new_pass, confirm) != 0 ) {
@@ -1427,26 +1411,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
           }
 #endif
 
-          if ( rv ) {
-            if (clean_old_pass && old_pass) {
-                cleanse( old_pass, strlen(old_pass) );
-                free( old_pass );
-            }
-            cleanse( new_pass, strlen(new_pass) );
-            free( new_pass );
-            cleanse( confirm, strlen(confirm) );
-            free( confirm );
-            return PAM_AUTHTOK_ERR;
-        } else {
-            cleanse( confirm, strlen(confirm) );
-            free( confirm );
+        if ( rv ) {
+            rv = PAM_AUTHTOK_ERR;
+            goto cleanup;
         }
     } else {
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                    _("Now use the pinpad to change your %s PIN"),
                    _(configuration->token_type));
-        old_pass = NULL;
-        new_pass = NULL;
     }
 
     if ( !logged_in ) {
@@ -1462,7 +1434,37 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         }
     }
 
-    if (clean_old_pass && old_pass) {
+    if ( rv == 0 ) {
+        return PAM_SUCCESS;
+    } else {
+        if ( logged_in ) {
+            ERR1("C_%PIN error", init_pin ? "Init" : "Set");
+            if (!configuration->quiet) {
+                pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
+                           init_pin ? "Init" : "Set");
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           _("Error: Unable to set new PIN"));
+                sleep(configuration->err_display_time);
+            }
+
+            if (final_try) {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           init_pin ?
+                           _("Error 2320: Wrong smartcard SO PIN. SO PIN is locked now!") :
+                           _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
+            } else {
+                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                           init_pin ?
+                           _("Error 2320: Wrong smartcard SO PIN") :
+                           _("Error 2320: Wrong smartcard PIN"));
+            }
+            sleep(configuration->err_display_time);
+        }
+        rv = PAM_AUTHTOK_ERR;
+    }
+
+ cleanup:
+	if (clean_old_pass && old_pass) {
         cleanse( old_pass, strlen(old_pass) );
         free( old_pass );
     }
@@ -1470,36 +1472,12 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         cleanse( new_pass, strlen(new_pass) );
         free( new_pass );
     }
-
-    if ( rv == 0 ) {
-        return PAM_SUCCESS;
-    } else if ( logged_in ) {
-        ERR1("C_%PIN error", init_pin ? "Init" : "Set");
-        if (!configuration->quiet) {
-            pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
-                       init_pin ? "Init" : "Set");
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       _("Error: Unable to set new PIN"));
-            sleep(configuration->err_display_time);
-        }
-
-        if (final_try) {
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       init_pin ?
-                         _("Error 2320: Wrong smartcard SO PIN. SO PIN is locked now!") :
-                         _("Error 2320: Wrong smartcard PIN. The PIN is locked now!"));
-        } else {
-            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                       init_pin ?
-                         _("Error 2320: Wrong smartcard SO PIN") :
-                         _("Error 2320: Wrong smartcard PIN"));
-        }
-
-        sleep(configuration->err_display_time);
-        return PAM_AUTHTOK_ERR;
-    } else {
-        return PAM_AUTHTOK_ERR;
+    if ( confirm ) {
+        cleanse( confirm, strlen(confirm) );
+        free( confirm );
     }
+
+	return rv;
 }
 
 static int pam_set_pin( pam_handle_t *pamh,
