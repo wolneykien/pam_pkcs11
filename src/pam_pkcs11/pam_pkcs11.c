@@ -1442,9 +1442,6 @@ static int pam_do_set_pin( pam_handle_t *pamh,
             if (!configuration->quiet) {
                 pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
                            init_pin ? "Init" : "Set");
-                pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                           _("Error: Unable to set new PIN"));
-                sleep(configuration->err_display_time);
             }
 
             if (final_try) {
