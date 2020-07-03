@@ -463,17 +463,21 @@ check_warn_pin_count( pam_handle_t *pamh, pkcs11_handle_t *ph,
                 pins_left = (*lowlevel->funcs.pin_count)(lowlevel->funcs.context, slot_num, 0);
                 if (pins_left > 0) {
                     if (pins_left < configuration->pin_count_low) {
-                        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                                   pins_left > 1 ?
-                                     _(configuration->prompts.pin_n_only):
-                                     _(configuration->prompts.pin_1_only),
-                                   pins_left);
+                        if (pins_left > 1)
+                            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                       _(configuration->prompts.pin_n_only),
+                                       pins_left);
+                        else
+                            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                       _(configuration->prompts.pin_1_only));
                     } else {
-                        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                                   pins_left > 1 ?
-                                     _(configuration->prompts.pin_n_left):
-                                     _(configuration->prompts.pin_1_left),
-                                   pins_left);
+                        if (pins_left > 1)
+                            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                       _(configuration->prompts.pin_n_left),
+                                       pins_left);
+                        else
+                            pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                                       _(configuration->prompts.pin_1_left));
                     }
                 } else if (pins_left == 0) {
                     pam_prompt(pamh, PAM_ERROR_MSG , NULL,
