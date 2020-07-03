@@ -108,7 +108,7 @@ static void display_config (void) {
         DBG1("sig_failed: %s", configuration.prompts.sig_failed);
         DBG1("sig_verif_failed: %s", configuration.prompts.sig_verif_failed);
         DBG1("enter_old_pin: %s", configuration.prompts.enter_old_pin);
-        DBG1("enter_so_pin: %s", configuration.prompts.enter_old_pin);
+        DBG1("enter_so_pin: %s", configuration.prompts.enter_so_pin);
         DBG1("enter_new_pin: %s", configuration.prompts.enter_new_pin);
         DBG1("confirm_pin: %s", configuration.prompts.confirm_pin);
         DBG1("confirm_pin_mismatch: %s", configuration.prompts.confirm_pin_mismatch);
