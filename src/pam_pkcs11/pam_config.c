@@ -122,8 +122,8 @@ static void display_config (void) {
         DBG1("were_incorrect: %s",configuration.were_incorrect);
         DBG1("pin_n_only: %s", configuration.prompts.pin_n_only);
         DBG1("pin_n_left: %s", configuration.prompts.pin_n_left);
-        DBG1("pin_1_only: %s", configuration.prompts.pin_n_only);
-        DBG1("pin_1_left: %s", configuration.prompts.pin_n_left);
+        DBG1("pin_1_only: %s", configuration.prompts.pin_1_only);
+        DBG1("pin_1_left: %s", configuration.prompts.pin_1_left);
         DBG1("pin_to_be_changed: %s",configuration.pin_to_be_changed);
         DBG1("pin_expired: %s",configuration.pin_expired);
         DBG1("changing_user_pin: %s",configuration.changing_user_pin);
