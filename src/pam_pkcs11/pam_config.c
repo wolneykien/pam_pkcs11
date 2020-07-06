@@ -165,7 +165,7 @@ static void parse_config_file(void) {
 	configuration.pin_count_low =
 	    scconf_get_int(root,"pin_count_low",configuration.pin_count_low);
 	configuration.force_pin_change =
-	    scconf_get_int(root,"force_pin_change",configuration.force_pin_change);
+	    scconf_get_bool(root,"force_pin_change",configuration.force_pin_change);
 	configuration.reset_pin_low =
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
 	configuration.reset_pin_locked =
