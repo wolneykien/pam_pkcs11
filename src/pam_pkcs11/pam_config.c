@@ -372,7 +372,7 @@ static void parse_config_file(const char *service) {
 	configuration.pin_count_low =
 	    scconf_get_int(root,"pin_count_low",configuration.pin_count_low);
 	configuration.force_pin_change =
-	    scconf_get_int(root,"force_pin_change",configuration.force_pin_change);
+	    scconf_get_bool(root,"force_pin_change",configuration.force_pin_change);
 	configuration.default_username =
 	    scconf_get_str(root, "default_username", configuration.default_username);
 	configuration.reset_pin_low =
