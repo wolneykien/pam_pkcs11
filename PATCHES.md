@@ -21,7 +21,7 @@ The patch layout:
 * `blacklist`
 * `prompts`
 * `gost`
-
+* `query-config`
 
 ## `ignore-no-card`
 
@@ -167,3 +167,8 @@ Adds support for some GOST ciphers.
 
 Implements lowlevel functions defined in `pin-checks` for the "ESMART"
 token.
+
+
+## `query-config`
+
+Added a tool to qeury the `pam_pkcs11.conf` configuration file values.
