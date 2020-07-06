@@ -82,14 +82,13 @@ AC_ARG_WITH(pwquality,
   AS_HELP_STRING([--with-pwquality],[use pwquality (default=no)]))
 if test "$with_pwquality" = "yes" -o "$with_pwquality" = "true"
 then
-  AC_CHECK_LIB(pwquality, pwquality_check,
-	[
+  PKG_CHECK_MODULES(PWQUALITY, pwquality, [
 	with_pwquality=yes
     AC_DEFINE(ENABLE_PWQUALITY, 1, [Define to 1 if you want to use libpwquality for to check the PIN.])
-	],[
+  ],[
 	AC_MSG_WARN(Could not locate pwquality library. pwquality disabled)
   	with_pwquality=no
-	])
+  ])
 else
   with_pwquality=no
 fi
