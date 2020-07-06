@@ -19,3 +19,6 @@ doc_DATA = $(TO_INSTALL) \
 
 unitdir = /lib/systemd/system
 unit_DATA = pkcs11-eventmgr.service
+
+pamdir = $(sysconfdir)/pam.d
+pam_DATA = system-auth-pkcs11_strict system-auth-use_first_pass-pkcs11_strict
