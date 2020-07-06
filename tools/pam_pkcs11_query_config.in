@@ -1,0 +1,44 @@
+#!/bin/sh -efu
+
+if [ -z "${1:-}" ]; then
+    echo "Usage: ${0##*/} [SECTION/]VAR [CONFFILE]" >&2
+    exit 1
+fi
+
+VARPATH="$1"; shift
+CONFFILE="${1:-@confdir@/pam_pkcs11.conf}"
+
+if [ "${VARPATH##*/}" = "$VARPATH" ]; then
+    VARPATH="pam_pkcs11/$VARPATH"
+fi
+
+awk -e '
+BEGIN {
+    path = "";
+    SECTION = gensub(/\/[^/]*$/, "", 1, VARPATH);
+    VARNAME = gensub(/^.*\//, "", 1, VARPATH);
+}
+
+/^[[:space:]]*[^#[:space:]][^=,;".]+[[:space:]]*{/ {
+    sec = gensub(/^[[:space:]]*([^#[:space:]][^=,;".]*)[[:space:]]*{.*$/, "\\1", 1);
+    sub(/[[:space:]]+$/, "", sec);
+    gsub(/[[:space:]]+/, " ", sec);
+    if (path != "") path = path "/";
+    path = path sec;
+}
+
+/^[[:space:]]*}/ {
+    sub(/\/[^/]*$/, "", path);
+}
+
+/^[[:space:]]*[^#[:space:]][^[:space:]=,"]+[[:space:]]*=/ {
+    name = gensub(/^[[:space:]]*([^#[:space:]][^[:space:]=,"]+)[[:space:]]*=.*$/, "\\1", 1);
+    if (name == VARNAME && SECTION == path) {
+        value = gensub(/^[[:space:]]*[^#[:space:]][^[:space:]=,"]+[[:space:]]*=[[:space:]]*"?([^";]+)"?[[:space:]]*;.*$/, "\\1", 1);
+        print value;
+        exit 0;
+    }
+}
+' \
+    -v VARPATH="$VARPATH" \
+    "$CONFFILE"
