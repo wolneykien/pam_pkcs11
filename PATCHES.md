@@ -22,6 +22,8 @@ The patch layout:
 * `prompts`
 * `gost`
 * `query-config`
+* `use-openssl`
+
 
 ## `ignore-no-card`
 
@@ -172,3 +174,8 @@ token.
 ## `query-config`
 
 Added a tool to qeury the `pam_pkcs11.conf` configuration file values.
+
+
+## `use-openssl`
+
+Remove `pkcs11_make_hash_link`. Our users can run `c_rehash` instead.
