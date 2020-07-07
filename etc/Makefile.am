@@ -15,10 +15,8 @@ EXTRA_DIST = $(TO_INSTALL) \
 
 doc_DATA = $(TO_INSTALL) \
 	pam_pkcs11.conf.example \
-	pam.d_login.example
+	pam.d_login.example \
+	pam.d_ignore_no_card.example
 
 unitdir = /lib/systemd/system
 unit_DATA = pkcs11-eventmgr.service
-
-pamdir = $(sysconfdir)/pam.d
-pam_DATA = system-auth-pkcs11_strict system-auth-use_first_pass-pkcs11_strict
