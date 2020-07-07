@@ -150,10 +150,6 @@ msgstr ""
 msgid "Error 2342: Verifying signature failed"
 msgstr ""
 
-#: src/pam_pkcs11/pam_pkcs11.c:886
-msgid "Cannot change the password on your smart card."
-msgstr ""
-
 #: src/pam_pkcs11/pam_config.c:65
 msgid "Smart card"
 msgstr ""
