@@ -146,10 +146,6 @@ msgstr "Error 2340: Assinatura falhou"
 msgid "Error 2342: Verifying signature failed"
 msgstr "Error 2342: Falha ao verificar assinatura"
 
-#: src/pam_pkcs11/pam_pkcs11.c:886
-msgid "Cannot change the password on your smart card."
-msgstr "Não foi possível alterar a senha no seu smart card."
-
 #: src/pam_pkcs11/pam_config.c:65
 msgid "Smart card"
 msgstr "Smartcard"
