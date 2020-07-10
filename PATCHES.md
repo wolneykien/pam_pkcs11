@@ -23,7 +23,7 @@ The patch layout:
 * `gost`
 * `query-config`
 * `use-openssl`
-
+* `fixes`
 
 ## `ignore-no-card`
 
@@ -179,3 +179,8 @@ Added a tool to qeury the `pam_pkcs11.conf` configuration file values.
 ## `use-openssl`
 
 Remove `pkcs11_make_hash_link`. Our users can run `c_rehash` instead.
+
+
+## `fixes`
+
+Various small fixes.
