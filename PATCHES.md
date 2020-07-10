@@ -62,6 +62,9 @@ Open PAM.
 Ignore the first event after `CARD_ERROR`. Also, use the `CARD_ERROR`
 as initial state value to re-implement a skip on the frist pass.
 
+Also, added `waitevent` command-line option to use
+`C_WaitForSlotEvent()`.
+
 
 ## `oid-mapper`
 
