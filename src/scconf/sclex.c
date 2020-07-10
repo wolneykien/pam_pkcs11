@@ -37,6 +37,7 @@ typedef struct {
 	size_t bufcur;
 	int saved_char;
 	const char *saved_string;
+	int escaped;
 	FILE *fp;
 } BUFHAN;
 
@@ -49,6 +50,7 @@ static void buf_init(BUFHAN * bp, FILE * fp, const char *saved_string)
 	bp->bufcur = 0;
 	bp->buf[0] = '\0';
 	bp->saved_string = saved_string;
+	bp->escaped = 0;
 }
 
 static void buf_addch(BUFHAN * bp, char ch)
@@ -68,6 +70,8 @@ static int buf_nextch(BUFHAN * bp)
 {
 	int saved;
 
+	bp->escaped = 0;
+
 	if (bp->saved_char) {
 		saved = bp->saved_char;
 		bp->saved_char = 0;
@@ -80,6 +84,21 @@ static int buf_nextch(BUFHAN * bp)
 		return saved;
 	} else {
 		saved = fgetc(bp->fp);
+		if (saved == '\\') {
+			saved = fgetc(bp->fp);
+			switch (saved) {
+			case 'n':
+				saved = '\n';
+				break;
+			case 'r':
+				saved = '\r';
+				break;
+			case 't':
+				saved = '\t';
+				break;
+			}
+			bp->escaped = 1;
+		}
 		return saved;
 	}
 }
@@ -103,7 +122,7 @@ static void buf_eat_till(BUFHAN * bp, char start, const char *end)
 		i = buf_nextch(bp);
 		if (i == EOF)
 			return;
-		if (strchr(end, i)) {
+		if (!bp->escaped && strchr(end, i)) {
 			bp->saved_char = i;
 			return;
 		}
