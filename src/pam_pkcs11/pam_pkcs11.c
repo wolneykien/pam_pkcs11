@@ -222,13 +222,13 @@ static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
     rv = fail_retcode;
     goto exit;
   } else if (rv) {
-    /* get password */
     pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                _("Welcome %.32s!"), get_slot_tokenlabel(ph));
 
-    /* no CKF_PROTECTED_AUTHENTICATION_PATH */
+    /* get password */
     rv = get_slot_protected_authentication_path(ph);
     if ((-1 == rv) || (0 == rv)) {
+      /* No CKF_PROTECTED_AUTHENTICATION_PATH */
       char password_prompt[256];
 
       snprintf(password_prompt,  sizeof(password_prompt), _("%s PIN: "), _(configuration->token_type));
@@ -269,11 +269,12 @@ static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
       }
     }
     else
-      {
-        /* use pin pad */
+    {
+        /* CKF_PROTECTED_AUTHENTICATION_PATH */
+        /* Use PIN pad */
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                    _("Enter your %s PIN on the pinpad"), _(configuration->token_type));
-      }
+    }
 
     rv = pkcs11_login(ph, password);
 
