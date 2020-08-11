@@ -277,7 +277,7 @@ static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
     else
     {
         /* CKF_PROTECTED_AUTHENTICATION_PATH */
-        /* Use the PIN pad */
+        /* Use PIN pad */
         pam_prompt(pamh, PAM_TEXT_INFO, NULL,
                    _("Enter your %s PIN on the pinpad"), _(configuration->token_type));
     }
