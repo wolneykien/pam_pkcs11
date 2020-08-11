@@ -43,7 +43,7 @@ int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
   char *pin;
 
   /* get password */
-  pin =getpass("PIN for token: ");
+  pin = getpass("PIN for token: ");
 #ifdef DEBUG_SHOW_PASSWORD
   DBG1("PIN = [%s]", pin);
 #endif
@@ -72,13 +72,13 @@ int pkcs11_pass_login(pkcs11_handle_t *h, int nullok)
 }
 
 /* Like pkcs11_pass_login above, but skip PIN prompt if desired
- * (e.g., if ask_pin is set; this is insecure).
+ * (e.g., if ask_pin_later is set; this might be insecure).
  */
 int pkcs11_nopass_login(pkcs11_handle_t *h)
 {
   int rv;
 
-  DBG("pkcs11_login is affected by false ask_pin; this might be insecure");
+  DBG("pkcs11_login is affected by ask_pin_later flag; this might be insecure!");
 
   /* perform pkcs #11 login similarly to
      CKF_PROTECTED_AUTHENTICATION_PATH in pam_pkcs11.c
