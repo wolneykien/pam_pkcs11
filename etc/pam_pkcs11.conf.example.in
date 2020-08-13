@@ -8,8 +8,8 @@ pam_pkcs11 {
   # Allow empty passwords
   nullok = true;
 
-  # Request PIN during smartcard operations (enabled by default)
-  ask_pin = true;
+  # Inspect the smartcard without login (disabled by default)
+  ask_pin_later = false;
 
   # Enable debugging support.
   debug = true; 

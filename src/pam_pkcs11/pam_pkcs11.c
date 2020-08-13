@@ -539,11 +539,123 @@ static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
                          struct configuration_st *configuration,
                          const char *pass, int init_pin, int final_try );
 
+static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
+                    struct configuration_st *configuration,
+                    int slot_num, int fail_retcode)
+{
+  int rv;
+  int pin_locked;
+  int final_try;
+  char *password = NULL;
+
+  pin_locked = 0;
+  rv = get_slot_user_pin_locked(ph);
+  if (rv) {
+      if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
+      pin_locked = 1;
+  }
+
+  rv = get_slot_login_required(ph);
+  if (rv == -1) {
+    ERR1("get_slot_login_required() failed: %s", get_error());
+    if (!configuration->quiet) {
+      pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
+    }
+    pam_prompt(pamh, PAM_ERROR_MSG , NULL, _("Error 2314: Slot login failed"));
+    sleep(configuration->err_display_time);
+    rv = fail_retcode;
+    goto exit;
+  } else if (rv) {
+    if (!is_a_screen_saver) {
+        if (user_desc && strlen(user_desc) > 0) {
+            pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                       pin_locked ?
+                         _(configuration->prompts.welcome_user_locked) :
+                         _(configuration->prompts.welcome_user),
+                       get_slot_tokenlabel(ph), user_desc);
+        } else {
+            pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                       pin_locked ?
+                         _(configuration->prompts.welcome_locked) :
+                         _(configuration->prompts.welcome),
+                       get_slot_tokenlabel(ph));
+        }
+    }
+
+    if (pin_locked) {
+        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
+                   _(configuration->prompts.pin_locked));
+        sleep(configuration->err_display_time);
+        rv = fail_retcode;
+        goto exit;
+    }
+
+    final_try = check_warn_pin_count( pamh, ph, lowlevel,
+                                      configuration, slot_num );
+
+    /* get password */
+    rv = get_slot_protected_authentication_path(ph);
+    if ((-1 == rv) || (0 == rv)) {
+      /* No CKF_PROTECTED_AUTHENTICATION_PATH */
+      char password_prompt[256];
+
+      snprintf(password_prompt,  sizeof(password_prompt),
+                 _(configuration->prompts.pin_prompt),
+                 _(configuration->token_type));
+      if (configuration->use_first_pass) {
+        rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
+      } else if (configuration->try_first_pass) {
+        rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
+                         PAM_AUTHTOK);
+      } else {
+        rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
+      }
+      if (rv != PAM_SUCCESS) {
+          _get_pwd_error( pamh, configuration, rv );
+          rv = fail_retcode;
+          goto exit;
+      }
+
+#ifdef DEBUG_SHOW_PASSWORD
+      DBG1("password = [%s]", password);
+#endif
+
+      /* check the password */
+      rv = check_pwd( pamh, configuration, password );
+      if ( rv != 0 )
+          goto exit;
+    }
+    else
+    {
+        /* CKF_PROTECTED_AUTHENTICATION_PATH */
+        /* Use PIN pad */
+        pam_prompt(pamh, PAM_TEXT_INFO, NULL,
+                   _(configuration->prompts.enter_pin_pinpad),
+                   _(configuration->token_type));
+    }
+
+    rv = pam_do_login(pamh, ph, configuration, password, 0,
+                      final_try);
+
+    if (rv != 0) {
+        rv = PAM_AUTH_ERR;
+        goto exit;
+    }
+  }
+
+ exit:
+  if (password) {
+      cleanse(password, strlen(password));
+      free(password);
+  }
+
+  return rv;
+}
+
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
   int i, rv;
   const char *user = NULL;
-  char *password = NULL;
   unsigned int slot_num = 0;
   int is_a_screen_saver = 0;
   struct configuration_st *configuration;
@@ -561,8 +673,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   const char *login_token_name = NULL;
   const char *service;
   int pin_to_be_changed = 0;
-  int final_try = 0;
-  int pin_locked = 0;
 
 #ifdef ENABLE_NLS
   setlocale(LC_ALL, "");
@@ -755,45 +865,17 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
-  /* We split the code into two cases based on configuration->ask_pin:
-     first comes the simplified case, then the complete default one.
-
-     There is some common code there, but we repeat it intentionally
-     because this way the implementation of the ask-pin-later feature (by raorn@)
-     will be as simple as just moving the second default part. */
-  if (!configuration->ask_pin) {
-
-  rv = get_slot_login_required(ph);
-  if (rv == -1) {
-    ERR1("get_slot_login_required() failed: %s", get_error());
-    if (!configuration->quiet) {
-		_pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
-	}
-    pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.login_failed));
-    sleep(configuration->err_display_time);
-    goto auth_failed_nopw;
-  } else if (rv) {
-    if (!is_a_screen_saver)
-        pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                   _(configuration->prompts.welcome), get_slot_tokenlabel(ph));
-    DBG("pkcs11_login is affected by false ask_pin (before ensuring that the user is the real owner of the card); this might be insecure");
-    /* call pkcs#11 login with empty password to ensure that the user is the real owner of the card
-     * we need to do thise before get_certificate_list because some tokens
-     * can not read their certificates until the token is authenticated */
-    rv = pkcs11_login(ph, NULL);
+  if (!configuration->ask_pin_later) {
+    /* Call pkcs#11 login earlier to ensure that the user is the
+       real owner of the card. We may need to do this before
+       get_certificate_list() because some tokens can't read
+       their certificates until the token is authenticated */
+    rv = do_login(pamh, ph, configuration, pkcs11_pam_fail);
     if (rv != 0) {
-      ERR1("open_pkcs11_login() failed: %s", get_error());
-		if (!configuration->quiet) {
-			_pam_syslog(pamh, LOG_ERR, "open_pkcs11_login() failed: %s", get_error());
-        }
-        pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                   _(configuration->prompts.login_failed));
-        sleep(configuration->err_display_time);
-        goto auth_failed_wrongpw;
+      pkcs11_pam_fail = rv;
+      goto auth_failed_nopw;
     }
   }
-
-  } /* end if (!configuration->ask_pin) */
 
   cert_list = get_certificate_list(ph, &ncert);
   if (rv<0) {
@@ -933,17 +1015,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       goto auth_failed_nopw;
   }
 
-
-  if (configuration->ask_pin)
-  {
-
-  pin_locked = 0;
-  rv = get_slot_user_pin_locked(ph);
-  if (rv) {
-      if (rv < 0) report_pkcs11_lib_error(pamh, "get_slot_user_pin_locked", configuration);
-      pin_locked = 1;
-  }
-
   rv = get_slot_user_pin_to_be_changed(ph);
   if (rv) {
       if (rv < 0) {
@@ -955,86 +1026,14 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       }
   }
 
-  rv = get_slot_login_required(ph);
-  if (rv == -1) {
-    ERR1("get_slot_login_required() failed: %s", get_error());
-    if (!configuration->quiet) {
-		_pam_syslog(pamh, LOG_ERR, "get_slot_login_required() failed: %s", get_error());
-	}
-    pam_prompt(pamh, PAM_ERROR_MSG , NULL, _(configuration->prompts.login_failed));
-    sleep(configuration->err_display_time);
-    goto auth_failed_nopw;
-  } else if (rv) {
-      if (!is_a_screen_saver) {
-          if (user_desc && strlen(user_desc) > 0) {
-              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                         pin_locked ?
-                         _(configuration->prompts.welcome_user_locked) :
-                         _(configuration->prompts.welcome_user),
-                         get_slot_tokenlabel(ph), user_desc);
-          } else {
-              pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                         pin_locked ?
-                         _(configuration->prompts.welcome_locked) :
-                         _(configuration->prompts.welcome),
-                         get_slot_tokenlabel(ph));
-          }
-      }
-
-      if (pin_locked) {
-          pam_prompt(pamh, PAM_ERROR_MSG , NULL,
-                     _(configuration->prompts.pin_locked));
-          sleep(configuration->err_display_time);
-          goto auth_failed_nopw;
-      }
-
-      final_try = check_warn_pin_count( pamh, ph, lowlevel,
-                                        configuration, slot_num );
-
-    /* no CKF_PROTECTED_AUTHENTICATION_PATH */
-	rv = get_slot_protected_authentication_path(ph);
-	if ((-1 == rv) || (0 == rv))
-	{
-		char password_prompt[256];
-
-		snprintf(password_prompt,  sizeof(password_prompt),
-                 _(configuration->prompts.pin_prompt),
-                 _(configuration->token_type));
-		if (configuration->use_first_pass) {
-			rv = pam_get_pwd(pamh, &password, NULL, PAM_AUTHTOK, 0);
-		} else if (configuration->try_first_pass) {
-			rv = pam_get_pwd(pamh, &password, password_prompt, PAM_AUTHTOK,
-					PAM_AUTHTOK);
-		} else {
-			rv = pam_get_pwd(pamh, &password, password_prompt, 0, PAM_AUTHTOK);
-		}
-		if (rv != PAM_SUCCESS) {
-            _get_pwd_error( pamh, configuration, rv );
-            goto auth_failed_nopw;
-		}
-
-        rv = check_pwd( pamh, configuration, password );
-        if ( rv != 0 ) {
-			goto auth_failed_wrongpw;
-		}
-	}
-	else
-	{
-		pam_prompt(pamh, PAM_TEXT_INFO, NULL,
-                   _(configuration->prompts.enter_pin_pinpad),
-                   _(configuration->token_type));
-		/* use pin pad */
-		password = NULL;
-	}
-
-    /* call pkcs#11 login to ensure that the user is the real owner of the card
-     * we need to do thise before get_certificate_list because some tokens
-     * can not read their certificates until the token is authenticated */
-    rv = pam_do_login( pamh, ph, configuration, password, 0, final_try );
-    if (rv != 0) goto auth_failed_wrongpw;
+  if (configuration->ask_pin_later)
+  {
+    rv = do_login(pamh, ph, configuration, pkcs11_pam_fail);
+    if (rv != 0) {
+      pkcs11_pam_fail = rv;
+      goto auth_failed_nopw;
+    }
   }
-
-  } /* end if (configuration->ask_pin) */
 
   /* if signature check is enforced, generate random data, sign and verify */
   if (configuration->policy.signature_policy) {

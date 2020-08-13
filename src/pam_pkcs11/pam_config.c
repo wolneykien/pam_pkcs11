@@ -67,7 +67,7 @@ static void display_config (void) {
         DBG1("default_username %s",configuration.default_username);
         DBG1("reset_pin_low %d",configuration.reset_pin_low);
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
-        DBG1("ask_pin %d",configuration.ask_pin);
+        DBG1("ask_pin_later %d",configuration.ask_pin_later);
         DBG1("check_pin_early %d", configuration.check_pin_early);
         DBG1("eku_sc_logon_policy %d",configuration.policy.eku_sc_logon_policy);
 
@@ -220,7 +220,7 @@ static void init_configuration() {
 
     configuration.token_type = N_("Smart card");
 
-    configuration.ask_pin = 1;
+    configuration.ask_pin_later = 0;
     configuration.pin_count_low = 5;
     configuration.reset_pin_low = 1;
     configuration.reset_pin_locked = 1;
@@ -379,8 +379,8 @@ static void parse_config_file(const char *service) {
 	    scconf_get_bool(root, "reset_pin_low", configuration.reset_pin_low);
 	configuration.reset_pin_locked =
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
-	configuration.ask_pin =
-	    scconf_get_bool(root,"ask_pin",configuration.ask_pin);
+	configuration.ask_pin_later =
+	    scconf_get_bool(root,"ask_pin_later",configuration.ask_pin_later);
     configuration.check_pin_early =
         scconf_get_bool(root, "check_pin_early", configuration.check_pin_early);
 
@@ -525,12 +525,12 @@ struct configuration_st *pk_configure( const char *service,
       		configuration.use_first_pass = 1;
 		continue;
 	   }
-    	   if (strcmp("ask_pin", argv[i]) == 0) {
-      		configuration.ask_pin = 1;
+    	   if (strcmp("ask_pin_later", argv[i]) == 0) {
+      		configuration.ask_pin_later = 1;
 		continue;
 	   }
-    	   if (strcmp("dont_ask_pin", argv[i]) == 0) {
-      		configuration.ask_pin = 0;
+    	   if (strcmp("ask_pin_earlier", argv[i]) == 0) {
+      		configuration.ask_pin_later = 0;
 		continue;
 	   }
     	   if (strcmp("wait_for_card", argv[i]) == 0) {

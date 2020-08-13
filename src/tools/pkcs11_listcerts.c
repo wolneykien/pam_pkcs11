@@ -103,7 +103,7 @@ int main(int argc, const char **argv) {
   }
 
   /* do login */
-  rv = configuration->ask_pin ? pkcs11_pass_login(ph,configuration->nullok) : pkcs11_nopass_login(ph);
+  rv = !configuration->ask_pin_later ? pkcs11_pass_login(ph,configuration->nullok) : pkcs11_nopass_login(ph);
   if (rv<0){
     DBG1("Login failed: %s",get_error());
     return 4;

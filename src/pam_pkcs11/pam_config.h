@@ -117,7 +117,7 @@ struct configuration_st {
     int reset_pin_locked;
     int force_pin_change;
     const char *default_username;
-	int ask_pin;
+	int ask_pin_later;
     int check_pin_early;
 
 #ifdef ENABLE_PWQUALITY
