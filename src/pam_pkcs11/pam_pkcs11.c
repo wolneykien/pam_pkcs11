@@ -1031,7 +1031,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     rv = do_login(pamh, ph, configuration, pkcs11_pam_fail);
     if (rv != 0) {
       pkcs11_pam_fail = rv;
-      goto auth_failed_nopw;
+      goto auth_failed;
     }
   }
 
