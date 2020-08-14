@@ -1067,7 +1067,6 @@ refresh_slots(pkcs11_handle_t *h)
   CK_ULONG i, slot_count;
   CK_SLOT_ID_PTR slots;
   CK_RV rv;
-  int j;
 
   slot_count = -1;
   slots = NULL;
