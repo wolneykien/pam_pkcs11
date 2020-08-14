@@ -24,8 +24,8 @@ The patch layout:
 * `query-config`
 * `use-openssl`
 * `scconf`
-* `fixes`
 * `opensslfix`
+* `fixes`
 
 
 ## `ignore-no-card`
@@ -192,11 +192,6 @@ Remove `pkcs11_make_hash_link`. Our users can run `c_rehash` instead.
 Some scconf improvements.
 
 
-## `fixes`
-
-Various small fixes.
-
-
 ## `opensslfix`
 
 Fixes to deal with old and new OpenSSL versions, i.e.:
@@ -206,3 +201,8 @@ Fixes to deal with old and new OpenSSL versions, i.e.:
     #else
     ...
     #endif
+
+
+## `fixes`
+
+Various small fixes including type casts and printf() formats.
