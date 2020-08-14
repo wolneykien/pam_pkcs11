@@ -1011,7 +1011,7 @@ int crypto_init(cert_policy *policy)
 {
   /* arg is ignored for OPENSSL */
   (void) policy;
-  OPENSSL_config( NULL );
+  OPENSSL_init_crypto( OPENSSL_INIT_LOAD_CONFIG, NULL );
   if (0 == access( CONFDIR "/openssl.cnf", F_OK )) {
       // FIXME: This seems to parse the config twice in a row.
       int ret = 0;
