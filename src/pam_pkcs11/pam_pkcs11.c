@@ -1412,7 +1412,7 @@ static int pam_do_set_pin( pam_handle_t *pamh,
         return PAM_SUCCESS;
     } else {
         if ( logged_in ) {
-            ERR1("C_%PIN error", init_pin ? "Init" : "Set");
+            ERR1("C_%sPIN error", init_pin ? "Init" : "Set");
             if (!configuration->quiet) {
                 pam_syslog(pamh, LOG_ERR, "C_%sPIN error",
                            init_pin ? "Init" : "Set");
