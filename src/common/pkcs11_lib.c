@@ -1520,7 +1520,7 @@ int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw)
   if ( rw ) {
     flags |= CKF_RW_SESSION;
   }
-  DBG1("C_OpenSession flags: 0x%08lX", flags);
+  DBG1("C_OpenSession flags: 0x%08X", flags);
   
   rv = h->fl->C_OpenSession(h->slots[slot].id, flags, NULL, NULL, &h->session);
   if (rv != CKR_OK) {
@@ -1579,8 +1579,8 @@ int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
                           new_pass, strlen(new_pass) );
 
     if ( rv != CKR_OK ) {
-        DBG1("C_SetPIN() failed: 0x%08lX", rv);
-        set_error("C_SetPIN() failed: 0x%08lX", rv);
+        DBG1("C_SetPIN() failed: %i", rv);
+        set_error("C_SetPIN() failed: %i", rv);
         return -1;
     } else {
         return 0;
@@ -1594,8 +1594,8 @@ int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass)
     rv = h->fl->C_InitPIN( h->session, new_pass, strlen(new_pass) );
 
     if ( rv != CKR_OK ) {
-        DBG1("C_InitPIN() failed: 0x%08lX", rv);
-        set_error("C_InitPIN() failed: 0x%08lX", rv);
+        DBG1("C_InitPIN() failed: %i", rv);
+        set_error("C_InitPIN() failed: %i", rv);
         return -1;
     } else {
         return 0;
