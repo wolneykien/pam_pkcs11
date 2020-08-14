@@ -43,7 +43,7 @@ should be used _along_ with `card_only` flag.
 
 **TODO**:
 * Update the `docs/` and `pam.d/login` example!
-* pick a72a9f8 for `ask-pin` for merge.
+
 
 ## `systemd`
 
@@ -125,11 +125,11 @@ Some `sprintf()` -> `snprintf()` replacements.
 
 ## `ask-pin`
 
-New contifuration option `ask_pin`. Without `ask_pin` the
-`pkcs11_login()` is called with _empty password_ (PIN).
+New contifuration option `ask_pin_later`. With `ask_pin_later`
+the token is inspected before login as some tokens allow to
+read public data before login.
 
-With `ask_pin` (the default) the PIN is asked _after_ the certificate
-list is obtained from the token.
+The PIN is asked directly before PIN verification.
 
 
 ## `welcome-user`
