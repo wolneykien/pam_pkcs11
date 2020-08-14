@@ -687,7 +687,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
       set_debug_level(1);
     }
 
-  pam_get_item(pamh, PAM_SERVICE, &service);
+  pam_get_item(pamh, PAM_SERVICE, (const void **) &service);
 
   /* call configure routines */
   configuration = pk_configure( service, argc, argv );
