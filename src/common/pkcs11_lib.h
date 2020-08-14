@@ -56,8 +56,8 @@ PKCS11_EXTERN const X509 *get_X509_certificate(cert_object_t *cert);
 PKCS11_EXTERN void release_pkcs11_module(pkcs11_handle_t *h);
 PKCS11_EXTERN int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw);
 PKCS11_EXTERN int close_pkcs11_session(pkcs11_handle_t *h);
-PKCS11_EXTERN int pkcs11_login(pkcs11_handle_t *h, char *password);
-PKCS11_EXTERN int pkcs11_login_so(pkcs11_handle_t *h, char *password);
+PKCS11_EXTERN int pkcs11_login(pkcs11_handle_t *h, const char *password);
+PKCS11_EXTERN int pkcs11_login_so(pkcs11_handle_t *h, const char *password);
 PKCS11_EXTERN int pkcs11_pass_login(pkcs11_handle_t *h, int nullok);
 PKCS11_EXTERN int get_slot_login_required(pkcs11_handle_t *h);
 PKCS11_EXTERN int get_slot_protected_authentication_path(pkcs11_handle_t *h);
@@ -68,8 +68,8 @@ PKCS11_EXTERN int sign_value(pkcs11_handle_t *h, cert_object_t *,
                unsigned char *data, unsigned long length,
                unsigned char **signature, unsigned long *signature_length);
 PKCS11_EXTERN int get_random_value(unsigned char *data, int length);
-PKCS11_EXTERN int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass);
-PKCS11_EXTERN int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass);
+PKCS11_EXTERN int pkcs11_setpin(pkcs11_handle_t *h, const char *old_pass, const char *new_pass);
+PKCS11_EXTERN int pkcs11_initpin(pkcs11_handle_t *h, const char *new_pass);
 PKCS11_EXTERN void cleanse(void *ptr, size_t len);
 
 #undef PKCS11_EXTERN
