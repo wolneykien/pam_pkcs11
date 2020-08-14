@@ -522,7 +522,12 @@ int verify_signature(X509 * x509, unsigned char *data, int data_length,
   EVP_MD_CTX *md_ctx = NULL;
   const EVP_MD* md = NULL;
   int nid;
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
   ASN1_OBJECT **algorithm;
+#else
+  ASN1_OBJECT *algorithm;
+#endif
 
   /* get the public-key */
   pubkey = X509_get_pubkey(x509);
@@ -548,7 +553,7 @@ int verify_signature(X509 * x509, unsigned char *data, int data_length,
 #else
       DBG("hashing with SHA256");
       md = EVP_sha256();
-
+#endif
       if (EVP_PKEY_base_id(pubkey) == EVP_PKEY_EC) {
           ECDSA_SIG* ec_sig;
           int rs_len;
