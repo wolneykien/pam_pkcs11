@@ -542,7 +542,7 @@ static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
 static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
                     struct configuration_st *configuration,
                     int slot_num, int fail_retcode, char *user_desc,
-                    int is_a_screen_saver)
+                    int is_a_screen_saver, struct lowlevel_instance *lowlevel)
 {
   int rv;
   int pin_locked;
@@ -866,13 +866,16 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     return pkcs11_pam_fail;
   }
 
+  /* load lowlevel modules */
+  struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx, ph );
+
   if (!configuration->ask_pin_later) {
     /* Call pkcs#11 login earlier to ensure that the user is the
        real owner of the card. We may need to do this before
        get_certificate_list() because some tokens can't read
        their certificates until the token is authenticated */
     rv = do_login(pamh, ph, configuration, slot_num, pkcs11_pam_fail,
-                  NULL, is_a_screen_saver);
+                  NULL, is_a_screen_saver, lowlevel);
     if (rv != 0) {
       pkcs11_pam_fail = rv;
       goto auth_failed;
@@ -892,8 +895,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
   /* load mapper modules */
   load_mappers(configuration->ctx);
-  /* load lowlevel modules */
-  struct lowlevel_instance *lowlevel = load_lowlevel( configuration->ctx, ph );
 
   /* find a valid and matching certificates */
   int cert_rv = 0;
@@ -1031,7 +1032,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (configuration->ask_pin_later)
   {
     rv = do_login(pamh, ph, configuration, slot_num, pkcs11_pam_fail,
-                  user_desc, is_a_screen_saver);
+                  user_desc, is_a_screen_saver, lowlevel);
     if (rv != 0) {
       pkcs11_pam_fail = rv;
       goto auth_failed;
