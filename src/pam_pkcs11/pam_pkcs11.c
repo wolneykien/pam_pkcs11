@@ -541,7 +541,8 @@ static int pam_do_login( pam_handle_t *pamh, pkcs11_handle_t *ph,
 
 static int do_login(pam_handle_t *pamh, pkcs11_handle_t *ph,
                     struct configuration_st *configuration,
-                    int slot_num, int fail_retcode, char *user_desc)
+                    int slot_num, int fail_retcode, char *user_desc,
+                    int is_a_screen_saver)
 {
   int rv;
   int pin_locked;
@@ -871,7 +872,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
        get_certificate_list() because some tokens can't read
        their certificates until the token is authenticated */
     rv = do_login(pamh, ph, configuration, slot_num, pkcs11_pam_fail,
-                  NULL);
+                  NULL, is_a_screen_saver);
     if (rv != 0) {
       pkcs11_pam_fail = rv;
       goto auth_failed;
@@ -1030,7 +1031,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
   if (configuration->ask_pin_later)
   {
     rv = do_login(pamh, ph, configuration, slot_num, pkcs11_pam_fail,
-                  user_desc);
+                  user_desc, is_a_screen_saver);
     if (rv != 0) {
       pkcs11_pam_fail = rv;
       goto auth_failed;
