@@ -25,6 +25,8 @@ The patch layout:
 * `use-openssl`
 * `scconf`
 * `fixes`
+* `opensslfix`
+
 
 ## `ignore-no-card`
 
@@ -193,3 +195,14 @@ Some scconf improvements.
 ## `fixes`
 
 Various small fixes.
+
+
+## `opensslfix`
+
+Fixes to deal with old and new OpenSSL versions, i.e.:
+
+    #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+    ...
+    #else
+    ...
+    #endif
