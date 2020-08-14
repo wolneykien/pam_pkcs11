@@ -1532,7 +1532,8 @@ int open_pkcs11_session(pkcs11_handle_t *h, unsigned int slot, int rw)
   return 0;
 }
 
-static int _pkcs11_login(pkcs11_handle_t *h, int login_type, char *password)
+static int _pkcs11_login(pkcs11_handle_t *h, int login_type,
+                         const char *password)
 {
   int rv;
 
@@ -1550,7 +1551,8 @@ static int _pkcs11_login(pkcs11_handle_t *h, int login_type, char *password)
   
   if (password)
 	  rv = h->fl->C_Login(h->session, login_type,
-                          (unsigned char*)password, strlen(password));
+                          (const unsigned char*) password,
+                          strlen(password));
   else
 	  rv = h->fl->C_Login(h->session, login_type, NULL, 0);
   
@@ -1561,17 +1563,18 @@ static int _pkcs11_login(pkcs11_handle_t *h, int login_type, char *password)
   return 0;
 }
 
-int pkcs11_login(pkcs11_handle_t *h, char *password)
+int pkcs11_login(pkcs11_handle_t *h, const char *password)
 {
     return _pkcs11_login(h, CKU_USER, password);
 }
 
-int pkcs11_login_so(pkcs11_handle_t *h, char *password)
+int pkcs11_login_so(pkcs11_handle_t *h, const char *password)
 {
     return _pkcs11_login(h, CKU_SO, password);
 }
 
-int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
+int pkcs11_setpin(pkcs11_handle_t *h, const char *old_pass,
+                  const char *new_pass)
 {
     int rv;
 
@@ -1587,7 +1590,7 @@ int pkcs11_setpin(pkcs11_handle_t *h, char *old_pass, char *new_pass)
     }
 }
 
-int pkcs11_initpin(pkcs11_handle_t *h, char *new_pass)
+int pkcs11_initpin(pkcs11_handle_t *h, const char *new_pass)
 {
     int rv;
 
