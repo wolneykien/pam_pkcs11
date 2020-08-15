@@ -1842,7 +1842,6 @@ getlist_error:
 int get_private_key(pkcs11_handle_t *h, cert_object_t *cert) {
   CK_OBJECT_CLASS key_class = CKO_PRIVATE_KEY;
   CK_BBOOL key_sign = CK_TRUE;
-  CK_ATTRIBUTE attr;
   CK_ATTRIBUTE key_template[] = {
     {CKA_CLASS, &key_class, sizeof(key_class)}
     ,
@@ -1985,7 +1984,7 @@ int sign_value(pkcs11_handle_t *h, cert_object_t *cert, CK_BYTE *data,
   }
 
   /* sign the token */
-  DBG2("C_SignInit: mech: %x, keytype: %x", mechanism.mechanism, cert->key_type);
+  DBG2("C_SignInit: mech: %lx, keytype: %lx", mechanism.mechanism, cert->key_type);
   rv = h->fl->C_SignInit(h->session, &mechanism, cert->private_key);
   if (rv != CKR_OK) {
     set_error("C_SignInit() failed: %i", rv);
