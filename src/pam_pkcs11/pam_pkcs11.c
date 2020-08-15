@@ -1252,7 +1252,7 @@ PAM_EXTERN int pam_sm_chauthtok(pam_handle_t *pamh, int flags, int argc, const c
           return PAM_SUCCESS;
       }
 
-      pam_get_item(pamh, PAM_SERVICE, &service);
+      pam_get_item(pamh, PAM_SERVICE, (const void **) &service);
 
       configuration = pk_configure(service, argc, argv);
       if (!configuration ) {
