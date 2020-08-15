@@ -155,7 +155,7 @@ struct lowlevel_instance *load_llmodule( scconf_context *ctx,
     if (res->funcs.pin_count)
         mymodule->funcs.pin_count = ll_pin_count;
 
-	return mymodule;
+    return mymodule;
 }
 
 void unload_llmodule( struct lowlevel_instance *module ) {
