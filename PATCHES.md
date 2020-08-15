@@ -26,6 +26,7 @@ The patch layout:
 * `scconf`
 * `opensslfix`
 * `fixes`
+* `ru`
 
 
 ## `ignore-no-card`
@@ -206,3 +207,8 @@ Fixes to deal with old and new OpenSSL versions, i.e.:
 ## `fixes`
 
 Various small fixes including type casts and printf() formats.
+
+
+## `ru`
+
+Updated Russian translations.
