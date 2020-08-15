@@ -45,8 +45,8 @@ static int usepwent = 0;
 static int ignorecase = 0;
 static int id_type = CERT_CN;
 static int debug = 0;
-static char *user_desc = NULL;
-static char *desc_mapfile = NULL;
+static const char *user_desc = NULL;
+static const char *desc_mapfile = NULL;
 static void parse_search_item(const char *item, int *id_type, const char **algo);
 
 static char **generic_mapper_find_entries(X509 *x509, void *context) {
