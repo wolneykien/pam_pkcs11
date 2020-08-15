@@ -55,8 +55,8 @@ static int scramble = 0;
 #define MAX_ENTRY_LEN 256
 static int maxlen = MAX_ENTRY_LEN;
 
-static char *user_desc = NULL;
-static char *desc_mapfile = NULL;
+static const char *user_desc = NULL;
+static const char *desc_mapfile = NULL;
 
 static char *scramble_entry(const char* entry);
 static void parse_search_item(const char *item, int *id_type, const char **algo);

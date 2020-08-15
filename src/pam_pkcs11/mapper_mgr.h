@@ -84,7 +84,7 @@ char * find_user(X509 *x509);
 * provided certificate and an optional login (user)
 * description.
 */
-char * find_user_desc(X509 *x509, char **desc);
+const char * find_user_desc(X509 *x509, char **desc);
 
 /**
 * This function search mapper module list until
