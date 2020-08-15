@@ -293,7 +293,7 @@ char * find_user(X509 *x509) {
 * provided certificate and an optional login (user)
 * description.
 */
-char * find_user_desc(X509 *x509, char **desc) {
+const char * find_user_desc(X509 *x509, char **desc) {
     mapper_module *mm = NULL;
     const char *login = _find_user(x509, &mm);
     if (login) {
