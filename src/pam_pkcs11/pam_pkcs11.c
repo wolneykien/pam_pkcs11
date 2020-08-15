@@ -101,7 +101,7 @@ static int pam_prompt(pam_handle_t *pamh, int style, char **response, char *fmt,
 
   msg.msg_style = style;
   msg.msg = text;
-  rv = pam_get_item(pamh, PAM_CONV, &conv);
+  rv = pam_get_item(pamh, PAM_CONV, (const void **) &conv);
   if (rv != PAM_SUCCESS)
     return rv;
   if ((conv == NULL) || (conv->conv == NULL))

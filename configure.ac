@@ -35,6 +35,9 @@ AM_PROG_LIBTOOL
 # check enable_dependency_tracking configure option
 AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
 
+# Disable pointer-sign warnings for a while...
+CFLAGS="$CFLAGS -Wno-pointer-sign"
+
 # Special check for pthread support
 AX_PTHREAD(, [ AC_MSG_ERROR([POSIX thread support required]) ])
 CC="$PTHREAD_CC"
