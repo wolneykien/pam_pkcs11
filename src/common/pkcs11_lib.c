@@ -1450,7 +1450,7 @@ static int _pkcs11_login(pkcs11_handle_t *h, int login_type,
   
   if (password)
 	  rv = h->fl->C_Login(h->session, login_type,
-                          (const unsigned char*) password,
+                          (unsigned char*) password,
                           strlen(password));
   else
 	  rv = h->fl->C_Login(h->session, login_type, NULL, 0);
@@ -1477,8 +1477,9 @@ int pkcs11_setpin(pkcs11_handle_t *h, const char *old_pass,
 {
     int rv;
 
-    rv = h->fl->C_SetPIN( h->session, old_pass, strlen(old_pass),
-                          new_pass, strlen(new_pass) );
+    rv = h->fl->C_SetPIN( h->session,
+                          (unsigned char*) old_pass, strlen(old_pass),
+                          (unsigned char*) new_pass, strlen(new_pass) );
 
     if ( rv != CKR_OK ) {
         DBG1("C_SetPIN() failed: %i", rv);
@@ -1493,7 +1494,8 @@ int pkcs11_initpin(pkcs11_handle_t *h, const char *new_pass)
 {
     int rv;
 
-    rv = h->fl->C_InitPIN( h->session, new_pass, strlen(new_pass) );
+    rv = h->fl->C_InitPIN( h->session, (unsigned char*) new_pass,
+                           strlen(new_pass) );
 
     if ( rv != CKR_OK ) {
         DBG1("C_InitPIN() failed: %i", rv);
