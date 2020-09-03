@@ -181,7 +181,16 @@ static int verify_crl(X509_CRL * crl, X509_STORE_CTX * ctx)
     return 0;
   }
   /* compare update times */
-  rv = X509_cmp_current_time(X509_CRL_get_lastUpdate(crl));
+  const ASN1_TIME *lastUpdate;
+  const ASN1_TIME *nextUpdate;
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+  lastUpdate = X509_CRL_get_lastUpdate(crl);
+  nextUpdate = X509_CRL_get_nextUpdate(crl);
+#else
+  lastUpdate = X509_CRL_get0_lastUpdate(crl);
+  nextUpdate = X509_CRL_get0_nextUpdate(crl);
+#endif
+  rv = X509_cmp_current_time(lastUpdate);
   if (rv == 0) {
     set_error("crl has an invalid last update field");
     return -1;
@@ -190,7 +199,7 @@ static int verify_crl(X509_CRL * crl, X509_STORE_CTX * ctx)
     DBG("crl is not yet valid");
     return 0;
   }
-  rv = X509_cmp_current_time(X509_CRL_get_nextUpdate(crl));
+  rv = X509_cmp_current_time(nextUpdate);
   if (rv == 0) {
     set_error("crl has an invalid next update field");
     return -1;
@@ -573,14 +582,27 @@ int verify_signature(X509 * x509, unsigned char *data, int data_length,
   }
 
   if (EVP_PKEY_base_id(pubkey) == EVP_PKEY_EC) {
+      // FIXME: Why not to use d2i_ECDSA_SIG() ???
       ECDSA_SIG* ec_sig;
       int rs_len;
       unsigned char *p = NULL;
 
       rs_len = *signature_length / 2;
       ec_sig = ECDSA_SIG_new();
-      BN_bin2bn(*signature, rs_len, ECDSA_SIG_get0_r(ec_sig));
-      BN_bin2bn(*signature + rs_len, rs_len, ECDSA_SIG_get0_s(ec_sig));
+
+      BIGNUM *r = BN_bin2bn(*signature, rs_len, NULL);
+      BIGNUM *s = BN_bin2bn(*signature + rs_len, rs_len, NULL);
+      if (!r || !s) {
+          set_error("Unable to parse r+s EC signature numbers: %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+          return -1;
+      }
+      if (1 != ECDSA_SIG_set0(ec_sig, r, s)) {
+          set_error("Unable to write r+s numbers to the signature structure: %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+          return -1;
+      }
+
       *signature_length = i2d_ECDSA_SIG(ec_sig, &p);
       free(*signature);
       *signature = malloc(*signature_length);
