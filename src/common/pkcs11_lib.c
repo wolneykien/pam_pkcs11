@@ -1985,6 +1985,7 @@ int sign_value(pkcs11_handle_t *h, cert_object_t *cert, CK_BYTE *data,
       break;
     case CKK_GOSTR3410: {
         mechanism.mechanism = CKM_GOSTR3410;
+        *signature_length = 64;
         int nid = get_pubkey_algo(get_X509_certificate(cert));
         if (nid < 0) {
             set_error("unable to get the public key algorithm");
@@ -2004,8 +2005,8 @@ int sign_value(pkcs11_handle_t *h, cert_object_t *cert, CK_BYTE *data,
     }
         break;
     case CKK_GOSTR3410_512:
-      mechanism.mechanism = CKM_GOSTR3410;
-      *signature_length = 512;
+      mechanism.mechanism = CKM_GOSTR3410_512;
+      *signature_length = 128;
       md_name = SN_id_GostR3411_2012_512;
       break;
     case CKK_ECDSA:
@@ -2063,7 +2064,7 @@ int sign_value(pkcs11_handle_t *h, cert_object_t *cert, CK_BYTE *data,
   if (h_prefix)
       memcpy(hash, h_prefix, h_offset);
 
-  DBG5("hash[%u] = [...:%02x:%02x:%02x:...:%02x]", md_size,
+  DBG5("hash[%u] = [%02x:%02x:%02x:...:%02x]", md_size,
        hash[h_offset], hash[h_offset+1], hash[h_offset+2],
        hash[h_offset + md_size - 1]);
 
@@ -2082,7 +2083,7 @@ int sign_value(pkcs11_handle_t *h, cert_object_t *cert, CK_BYTE *data,
         set_error("not enough free memory available");
         goto error;
     }
-    rv = h->fl->C_Sign(h->session, hash + h_offset, md_size, *signature, signature_length);
+    rv = h->fl->C_Sign(h->session, hash, h_offset + md_size, *signature, signature_length);
     if (rv == CKR_BUFFER_TOO_SMALL) {
       /* FIXME: Is *signature_length already increased by C_Sign()? */
       free(*signature);
