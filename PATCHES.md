@@ -169,7 +169,7 @@ makes `quite` to affect only the syslog output.
 
 ## `gost`
 
-Adds support for some GOST ciphers.
+Adds support for GOST signatures.
 
 
 ## `isbc`
