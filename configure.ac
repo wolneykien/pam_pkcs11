@@ -75,24 +75,26 @@ AC_SUBST(CURL_CFLAGS)
 AC_SUBST(CURL_LIBS)
 AM_CONDITIONAL(HAVE_CURL, test x$with_curl = xyes)
 
-# Add argument for using libpwquality
-AC_ARG_WITH(pwquality,
-  AS_HELP_STRING([--with-pwquality],[use pwquality (default=no)]))
-if test "$with_pwquality" = "yes" -o "$with_pwquality" = "true"
+# Add argument for using libpasswdqc
+AC_ARG_WITH(passwdqc,
+  AS_HELP_STRING([--with-passwdqc],[use passwdqc (default=no)]))
+if test "$with_passwdqc" = "yes" -o "$with_passwdqc" = "true"
 then
-  PKG_CHECK_MODULES(PWQUALITY, pwquality, [
-	with_pwquality=yes
-    AC_DEFINE(ENABLE_PWQUALITY, 1, [Define to 1 if you want to use libpwquality for to check the PIN.])
+  AC_CHECK_LIB(passwdqc, passwdqc_check, [
+	with_passwdqc=yes
+    PASSWDQC_CFLAGS
+    PASSWDQC_LIBS=-lpasswdqc
+    AC_DEFINE(ENABLE_PASSWDQC, 1, [Define to 1 if you want to use libpasswdqc to check the PIN.])
   ],[
-	AC_MSG_WARN(Could not locate pwquality library. pwquality disabled)
-  	with_pwquality=no
+	AC_MSG_ERROR(Could not locate passwdqc library, passwdqc disabled)
+  	with_passwdqc=no
   ])
 else
-  with_pwquality=no
+  with_passwdqc=no
 fi
-AC_SUBST(PWQUALITY_CFLAGS)
-AC_SUBST(PWQUALITY_LIBS)
-AM_CONDITIONAL(HAVE_PWQUALITY, test x$with_pwquality = xyes)
+AC_SUBST(PASSWDQC_CFLAGS)
+AC_SUBST(PASSWDQC_LIBS)
+AM_CONDITIONAL(HAVE_PASSWDQC, test x$with_passwdqc = xyes)
 
 # Add argument for defining configuration directory
 AC_ARG_WITH(confdir,

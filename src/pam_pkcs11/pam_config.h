@@ -25,8 +25,8 @@
 #include "../scconf/scconf.h"
 #include "../common/cert_vfy.h"
 
-#ifdef ENABLE_PWQUALITY
-#include <pwquality.h>
+#ifdef ENABLE_PASSWDQC
+#include <passwdqc.h>
 #endif
 
 struct configuration_st {
@@ -58,9 +58,9 @@ struct configuration_st {
     int force_pin_change;
     int check_pin_early;
 
-#ifdef ENABLE_PWQUALITY
-    const char *pwquality_config;
-    pwquality_settings_t *pwq;
+#ifdef ENABLE_PASSWDQC
+    const char *passwdqc_config;
+    passwdqc_params_t *pwq;
 #endif
 };
 

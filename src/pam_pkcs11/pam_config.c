@@ -105,8 +105,8 @@ static void display_config (void) {
         DBG1("reset_pin_locked %d",configuration.reset_pin_locked);
         DBG1("check_pin_early %d", configuration.check_pin_early);
 
-#ifdef ENABLE_PWQUALITY
-        DBG1("pwquality_config %s",configuration.pwquality_config);
+#ifdef ENABLE_PASSWDQC
+        DBG1("passwdqc_config %s",configuration.passwdqc_config);
 #endif
 }
 #endif
@@ -175,9 +175,9 @@ static void parse_config_file(void) {
 	configuration.reset_pin_locked =
 	    scconf_get_bool(root, "reset_pin_locked", configuration.reset_pin_locked);
 
-#ifdef ENABLE_PWQUALITY
-	configuration.pwquality_config =
-	    scconf_get_str(root, "pwquality_config", configuration.pwquality_config);
+#ifdef ENABLE_PASSWDQC
+	configuration.passwdqc_config =
+	    scconf_get_str(root, "passwdqc_config", configuration.passwdqc_config);
 #endif
 
     configuration.check_pin_early =

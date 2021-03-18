@@ -62,8 +62,8 @@
 #endif
 #define LOGNAME   "PAM-PKCS11"  /* name for log-file entries */
 
-#ifdef ENABLE_PWQUALITY
-#include <pwquality.h>
+#ifdef ENABLE_PASSWDQC
+#include <passwdqc.h>
 #endif
 
 /*
@@ -1390,15 +1390,14 @@ static int pam_do_set_pin( pam_handle_t *pamh,
             rv = PAM_AUTHTOK_ERR;
         }
 
-#ifdef ENABLE_PWQUALITY
+#ifdef ENABLE_PASSWDQC
           if ( rv == 0 && configuration->pwq ) {
-              void *auxerror;
-              rv = pwquality_check( configuration->pwq, new_pass,
-                                    init_pin ? NULL : old_pass,
-                                    NULL, &auxerror );
-              if ( rv < 0 ) {
-                  const char *err_text =
-                      pwquality_strerror( NULL, 0, rv, auxerror );
+              const char *err_text = NULL;
+              err_text = passwdqc_check( &configuration->pwq->qc,
+                                         new_pass,
+                                         init_pin ? NULL : old_pass,
+                                         NULL );
+              if ( err_text ) {
                   ERR1("PIN quality check failed: %s", err_text);
                   if (!configuration->quiet) {
                       pam_syslog(pamh, LOG_ERR,
@@ -1498,19 +1497,18 @@ static int pam_set_pin( pam_handle_t *pamh,
         return PAM_AUTHINFO_UNAVAIL;
     }
 
-#ifdef ENABLE_PWQUALITY
-    if ( configuration->pwquality_config ) {
-        void *auxerror;
-        configuration->pwq = pwquality_default_settings();
-        rv = pwquality_read_config( configuration->pwq,
-                                    configuration->pwquality_config,
-                                    &auxerror );
+#ifdef ENABLE_PASSWDQC
+    if ( configuration->passwdqc_config ) {
+        char *err_text = NULL;
+        passwdqc_params_reset( configuration->pwq );
+        rv = passwdqc_params_load( configuration->pwq,
+                                   &err_text,
+                                   configuration->passwdqc_config );
         if ( rv ) {
-            const char *err_text = pwquality_strerror( NULL, 0, rv, auxerror );
-            ERR1("Error reading libpwquality config: %s", err_text);
+            ERR1("Error reading libpasswdqc config: %s", err_text);
             if (!configuration->quiet) {
                 pam_syslog(pamh, LOG_ERR,
-                           "Error reading libpwquality config: %s",
+                           "Error reading libpasswdqc config: %s",
                            err_text);
             }
             rv = PAM_AUTHINFO_UNAVAIL;
@@ -1523,9 +1521,9 @@ static int pam_set_pin( pam_handle_t *pamh,
                              configuration, old_pass, init_pin );
     }
 
-#ifdef ENABLE_PWQUALITY
+#ifdef ENABLE_PASSWDQC
     if ( configuration->pwq )
-        pwquality_free_settings( configuration->pwq );
+        passwdqc_params_free( configuration->pwq );
 #endif
 
     pkcs11_close_session( pamh, configuration, ph );
